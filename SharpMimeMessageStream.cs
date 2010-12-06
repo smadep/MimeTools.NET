@@ -255,7 +255,7 @@ namespace anmar.SharpMimeTools
         
         public void SeekPoint(long point)
         {
-            if (sr.BaseStream.CanSeek && sr.BaseStream.Seek(point, SeekOrigin.Begin) != point)
+            if (sr.BaseStream.CanSeek && sr.BaseStream.Seek(point, System.IO.SeekOrigin.Begin) != point)
             {
 #if LOG
 				if ( log.IsErrorEnabled) log.Error ("Error while seeking");

@@ -50,7 +50,7 @@ namespace anmar.SharpMimeTools
 		private static log4net.ILog log  = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
 #endif
         private readonly SharpMimeMessageStream message;
-        private readonly MessageInfo mi;
+        private MessageInfo mi;
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="SharpMimeMessage"/> class from a <see cref="System.IO.Stream"/>
