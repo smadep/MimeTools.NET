@@ -24,6 +24,7 @@
 using System;
 using System.Collections;
 using System.IO;
+using System.Collections.Generic;
 
 namespace anmar.SharpMimeTools
 {
@@ -98,7 +99,6 @@ namespace anmar.SharpMimeTools
         // TNEF signature
         private const int TnefSignature = 0x223e9f78;
         private BinaryReader _reader;
-        private ArrayList _attachments;
         private String _body;
 
         /// <summary>
@@ -118,14 +118,11 @@ namespace anmar.SharpMimeTools
         }
 
         /// <summary>
-        /// Gets a <see cref="System.Collections.ArrayList" /> instance that contains the attachments found in the tnef stream.
+        /// Gets a list that contains the attachments found in the tnef stream.
         /// </summary>
-        /// <value><see cref="System.Collections.ArrayList" /> instance that contains the <see cref="SharpAttachment" /> found in the tnef stream. The <b>null</b> reference is retuned when no attachments found.</value>
+        /// <value>A list that contains the <see cref="SharpAttachment" /> found in the tnef stream. The <b>null</b> reference is retuned when no attachments found.</value>
         /// <remarks>Each attachment is a <see cref="SharpAttachment" /> instance.</remarks>
-        public ArrayList Attachments
-        {
-            get { return _attachments; }
-        }
+        public List<SharpAttachment> Attachments { get; private set; }
         
         /// <summary>
         /// Gets a the text body from the ms-tnef stream (<b>BODY</b> tnef attribute).
@@ -172,7 +169,7 @@ namespace anmar.SharpMimeTools
                 return false;
             }
             bool error = false;
-            _attachments = new ArrayList();
+            Attachments = new List<SharpAttachment>();
             ushort key = ReadUInt16();
             System.Text.Encoding enc = SharpMimeHeader.EncodingDefault;
             SharpAttachment attachment_cur = null;
@@ -236,7 +233,7 @@ namespace anmar.SharpMimeTools
                     // Attachment start
                     if (att_n == TnefAttribute.AttachRendData)
                     {
-                        String name = String.Concat("generated_", key, "_", (_attachments.Count + 1), ".binary");
+                        String name = String.Concat("generated_", key, "_", (Attachments.Count + 1), ".binary");
                         if (path == null)
                         {
                             attachment_cur = new SharpAttachment();
@@ -333,7 +330,7 @@ namespace anmar.SharpMimeTools
                                     attachment_cur.Stream.Seek(0, SeekOrigin.Begin);
                                 attachment_cur.Size = attachment_cur.Stream.Length;
                             }
-                            _attachments.Add(attachment_cur);
+                            Attachments.Add(attachment_cur);
                         }
                         // Attachment mapi props
                     }
@@ -343,8 +340,8 @@ namespace anmar.SharpMimeTools
                     }
                 }
             }
-            if (_attachments.Count == 0)
-                _attachments = null;
+            if (Attachments.Count == 0)
+                Attachments = null;
             return !error;
         }
 

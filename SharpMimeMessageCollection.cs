@@ -21,47 +21,26 @@
 // -----------------------------------------------------------------------
 
 using System;
-using System.Collections;
+using System.Collections.Generic;
 
 namespace anmar.SharpMimeTools
 {
-    internal class SharpMimeMessageCollection : IEnumerable
+    internal class SharpMimeMessageCollection : List<SharpMimeMessage>
     {
-        protected ArrayList messages = new ArrayList();
-
-        public SharpMimeMessage this[int index]
+        public SharpMimeMessageCollection()
         {
-            get { return Get(index); }
         }
 
-        public int Count
-        {
-            get
-            {
-                return messages.Count;
-            }
+        public SharpMimeMessageCollection(int capacity)
+            : base(capacity)
+        {    
+        }
+
+        public SharpMimeMessageCollection(IEnumerable<SharpMimeMessage> collection)
+            : base(collection)
+        {    
         }
 
         public SharpMimeMessage Parent { get; set; }
-
-        public void Add(SharpMimeMessage msg)
-        {
-            messages.Add(msg);
-        }
-
-        public SharpMimeMessage Get(int index)
-        {
-            return (SharpMimeMessage)messages[index];
-        }
-
-        public IEnumerator GetEnumerator()
-        {
-            return messages.GetEnumerator();
-        }
-        
-        public void Clear()
-        {
-            messages.Clear();
-        }
     }
 }

@@ -453,7 +453,7 @@ namespace anmar.SharpMimeTools
 		/// <returns>A <see cref="anmar.SharpMimeTools.SharpMimeMessage" /> for the requested part</returns>
         public SharpMimeMessage GetPart(int index)
         {
-            return Parts.Get(index);
+            return Parts[index];
         }
 
         public void Dispose()
@@ -535,7 +535,7 @@ namespace anmar.SharpMimeTools
                         {
                             if (mi.parts.Count > 0)
                             {
-                                mi.parts.Get(mi.parts.Count - 1).mi.end = this.message.Position_preRead;
+                                mi.parts[mi.parts.Count - 1].mi.end = this.message.Position_preRead;
                             }
                             SharpMimeMessage msg = new SharpMimeMessage(this.message, this.message.Position);
                             mi.parts.Add(msg);
@@ -546,7 +546,7 @@ namespace anmar.SharpMimeTools
                             mi.end = this.message.Position_preRead;
                             if (mi.parts.Count > 0)
                             {
-                                mi.parts.Get(mi.parts.Count - 1).mi.end = this.message.Position_preRead;
+                                mi.parts[mi.parts.Count - 1].mi.end = this.message.Position_preRead;
                             }
                             break;
                         }

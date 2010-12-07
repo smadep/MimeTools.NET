@@ -24,6 +24,7 @@ using System;
 using System.Collections;
 using System.IO;
 using System.Web;
+using System.Collections.Generic;
 
 namespace anmar.SharpMimeTools
 {
@@ -64,7 +65,7 @@ namespace anmar.SharpMimeTools
     /// </example>
     public sealed class SharpMessage
     {
-        private ArrayList _attachments;
+        private List<SharpAttachment> _attachments;
         private String _body = String.Empty;
         private bool _body_html;
         private DateTime _date;
@@ -414,7 +415,7 @@ namespace anmar.SharpMimeTools
 
         private void ParseMessage(Stream stream, MimeTopLevelMediaType types, SharpDecodeOptions options, String preferredtextsubtype, String path)
         {
-            _attachments = new ArrayList();
+            _attachments = new List<SharpAttachment>();
             SharpMimeMessage message = new SharpMimeMessage(stream);
             ParseMessage(message, types, (options & SharpDecodeOptions.AllowHtml) == SharpDecodeOptions.AllowHtml, options, preferredtextsubtype, path);
             _headers = message.Header;

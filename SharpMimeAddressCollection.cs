@@ -1,12 +1,11 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 
 namespace anmar.SharpMimeTools
 {
-    internal class SharpMimeAddressCollection : IEnumerable
+    internal class SharpMimeAddressCollection : List<SharpMimeAddress>
     {
-        protected ArrayList list = new ArrayList();
-
         public SharpMimeAddressCollection(String text)
         {
             String[] tokens = ABNF.address_regex.Split(text);
@@ -17,20 +16,21 @@ namespace anmar.SharpMimeTools
             }
         }
 
-        public SharpMimeAddress this[int index]
+        public SharpMimeAddressCollection()
         {
-            get
-            {
-                return Get(index);
-            }
+            
         }
 
-        public int Count
+        public SharpMimeAddressCollection(int capacity)
+            : base(capacity)
         {
-            get
-            {
-                return list.Count;
-            }
+            
+        }
+
+        public SharpMimeAddressCollection(IEnumerable<SharpMimeAddress> collection)
+            : base(collection)
+        {
+            
         }
 
         public static SharpMimeAddressCollection Parse(String text)
@@ -40,25 +40,10 @@ namespace anmar.SharpMimeTools
             return new SharpMimeAddressCollection(text);
         }
         
-        public IEnumerator GetEnumerator()
-        {
-            return list.GetEnumerator();
-        }
-        
-        public void Add(SharpMimeAddress address)
-        {
-            list.Add(address);
-        }
-        
-        public SharpMimeAddress Get(int index)
-        {
-            return (SharpMimeAddress)list[index];
-        }
-        
         public override string ToString()
         {
             System.Text.StringBuilder text = new System.Text.StringBuilder();
-            foreach (SharpMimeAddress token in list)
+            foreach (SharpMimeAddress token in this)
             {
                 text.Append(token.ToString());
                 if (token.Length > 0)
