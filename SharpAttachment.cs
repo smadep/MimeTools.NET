@@ -12,7 +12,6 @@ namespace anmar.SharpMimeTools
         private DateTime _mtime = DateTime.MinValue;
         private String _name;
         private MemoryStream _stream;
-        private FileInfo _saved_file;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="anmar.SharpMimeTools.SharpAttachment" /> class based on the supplied <see cref="System.IO.MemoryStream" />.
@@ -34,7 +33,7 @@ namespace anmar.SharpMimeTools
         /// <param name="file"><see cref="System.IO.MemoryStream" /> instance that contains the info about the attachment.</param>
         public SharpAttachment(FileInfo file)
         {
-            _saved_file = file;
+            SavedFile = file;
             _ctime = file.CreationTime;
             _mtime = file.LastWriteTime;
         }
@@ -111,10 +110,7 @@ namespace anmar.SharpMimeTools
         /// Gets the <see cref="System.IO.FileInfo" /> of the saved file.
         /// </summary>
         /// <value>The <see cref="System.IO.FileInfo" /> of the saved file.</value>
-        public FileInfo SavedFile
-        {
-            get { return _saved_file; }
-        }
+        public FileInfo SavedFile { get; private set; }
 
         /// <summary>
         /// Gets the <see cref="System.IO.Stream " /> of the attachment.
@@ -127,8 +123,8 @@ namespace anmar.SharpMimeTools
             {
                 if (_stream != null)
                     return _stream;
-                else if (_saved_file != null)
-                    return _saved_file.OpenRead();
+                else if (SavedFile != null)
+                    return SavedFile.OpenRead();
                 else
                     return null;
             }
@@ -158,8 +154,8 @@ namespace anmar.SharpMimeTools
                 return null;
             if (_stream == null)
             {
-                if (_saved_file != null)
-                    return _saved_file;
+                if (SavedFile != null)
+                    return SavedFile;
                 else
                     return null;
             }
@@ -206,7 +202,7 @@ namespace anmar.SharpMimeTools
                     file.LastWriteTime = _mtime;
                 if (_ctime != DateTime.MinValue)
                     file.CreationTime = _ctime;
-                _saved_file = file;
+                SavedFile = file;
             }
             catch (Exception)
             {
