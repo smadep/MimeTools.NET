@@ -416,11 +416,11 @@ namespace anmar.SharpMimeTools
         private void ParseMessage(Stream stream, MimeTopLevelMediaType types, SharpDecodeOptions options, String preferredtextsubtype, String path)
         {
             _attachments = new List<SharpAttachment>();
-            SharpMimeMessage message = new SharpMimeMessage(stream);
-            ParseMessage(message, types, (options & SharpDecodeOptions.AllowHtml) == SharpDecodeOptions.AllowHtml, options, preferredtextsubtype, path);
-            _headers = message.Header;
-            message.Close();
-            message = null;
+            using (SharpMimeMessage message = new SharpMimeMessage(stream))
+            {
+                ParseMessage(message, types, (options & SharpDecodeOptions.AllowHtml) == SharpDecodeOptions.AllowHtml, options, preferredtextsubtype, path);
+                _headers = message.Header;
+            }
             // find and decode uuencoded content if configured to do so (and attachments a allowed)
             if ((options & SharpDecodeOptions.UuDecode) == SharpDecodeOptions.UuDecode
                    && (options & SharpDecodeOptions.AllowAttachments) == SharpDecodeOptions.AllowAttachments)
