@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 namespace anmar.SharpMimeTools
 {
-    internal class SharpMimeAddressCollection : List<SharpMimeAddress>
+    public class SharpMimeAddressCollection : List<SharpMimeAddress>
     {
         public SharpMimeAddressCollection(String text)
         {
