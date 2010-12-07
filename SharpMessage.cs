@@ -65,15 +65,11 @@ namespace anmar.SharpMimeTools
     /// </example>
     public sealed class SharpMessage
     {
-        private List<SharpAttachment> _attachments;
         private String _body = String.Empty;
-        private bool _body_html;
         private DateTime _date;
         private String _from_addr = String.Empty;
         private String _from_name = String.Empty;
-        private SharpMimeHeader _headers;
         private String _subject = String.Empty;
-        private SharpMimeAddressCollection _to;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="anmar.SharpMimeTools.SharpMessage" /> class based on the supplied <see cref="System.IO.Stream" />.
@@ -253,10 +249,7 @@ namespace anmar.SharpMimeTools
         /// <see cref="System.Collections.ICollection" /> that contains the attachments found in this message.
         /// </summary>
         /// <remarks>Each attachment is a <see cref="SharpAttachment" /> instance.</remarks>
-        public ICollection Attachments
-        {
-            get { return _attachments; }
-        }
+        public ICollection Attachments { get; private set; }
 
         /// <summary>
         /// Text body
@@ -272,7 +265,7 @@ namespace anmar.SharpMimeTools
         /// </summary>
         public IEnumerable Cc
         {
-            get { return SharpMimeAddressCollection.Parse(_headers.Cc); }
+            get { return SharpMimeAddressCollection.Parse(Headers.Cc); }
         }
 
         /// <summary>
@@ -306,25 +299,19 @@ namespace anmar.SharpMimeTools
         /// Gets a value indicating whether the body contains html content
         /// </summary>
         /// <value><b>true</b> if the body contains html content; otherwise, <b>false</b></value>
-        public bool HasHtmlBody
-        {
-            get { return _body_html; }
-        }
+        public bool HasHtmlBody { get; private set; }
 
         /// <summary>
         /// <see cref="anmar.SharpMimeTools.SharpMimeHeader" /> instance for this message that contains the raw content of the headers.
         /// </summary>
-        public SharpMimeHeader Headers
-        {
-            get { return _headers; }
-        }
+        public SharpMimeHeader Headers { get; private set; }
 
         /// <summary>
         /// <b>Message-ID</b> header
         /// </summary>
         public String MessageID
         {
-            get { return _headers.MessageID; }
+            get { return Headers.MessageID; }
         }
 
         /// <summary>
@@ -339,10 +326,7 @@ namespace anmar.SharpMimeTools
         /// <summary>
         /// Collection of <see cref="anmar.SharpMimeTools.SharpMimeAddress" /> found in the <b>To</b> header field.
         /// </summary>
-        public IEnumerable To
-        {
-            get { return _to; }
-        }
+        public IEnumerable To { get; private set; }
 
         /// <summary>
         /// Returns the requested header field body.
@@ -353,9 +337,9 @@ namespace anmar.SharpMimeTools
         /// If the requested field is not present in this instance, <see cref="System.String.Empty" /> is returned instead.</remarks>
         public String GetHeaderField(String name)
         {
-            if (_headers == null)
+            if (Headers == null)
                 return String.Empty;
-            return _headers.GetHeaderField(name, String.Empty, true, true);
+            return Headers.GetHeaderField(name, String.Empty, true, true);
         }
 
         /// <summary>
@@ -372,18 +356,18 @@ namespace anmar.SharpMimeTools
         public void SetUrlBase(String attachmentsurl)
         {
             // Not a html boy or not body at all
-            if (!_body_html || _body.Length == 0)
+            if (!HasHtmlBody || _body.Length == 0)
                 return;
             // No references found, so nothing to do
             if (_body.IndexOf("cid:") == -1 && _body.IndexOf("mid:") == -1)
                 return;
             String msgid = SharpMimeTools.Rfc2392Url(MessageID);
             // There is a base url and attachments, so try refererencing them properly
-            if (attachmentsurl != null && _attachments != null && _attachments.Count > 0)
+            if (attachmentsurl != null && Attachments != null && Attachments.Count > 0)
             {
-                for (int i = 0, count = _attachments.Count; i < count; i++)
+                for (int i = 0, count = Attachments.Count; i < count; i++)
                 {
-                    SharpAttachment attachment = (SharpAttachment)_attachments[i];
+                    SharpAttachment attachment = (SharpAttachment)Attachments[i];
                     if (attachment.ContentID != null)
                     {
                         String conid = SharpMimeTools.Rfc2392Url(attachment.ContentID);
@@ -415,21 +399,21 @@ namespace anmar.SharpMimeTools
 
         private void ParseMessage(Stream stream, MimeTopLevelMediaType types, SharpDecodeOptions options, String preferredtextsubtype, String path)
         {
-            _attachments = new List<SharpAttachment>();
+            Attachments = new List<SharpAttachment>();
             using (SharpMimeMessage message = new SharpMimeMessage(stream))
             {
                 ParseMessage(message, types, (options & SharpDecodeOptions.AllowHtml) == SharpDecodeOptions.AllowHtml, options, preferredtextsubtype, path);
-                _headers = message.Header;
+                Headers = message.Header;
             }
             // find and decode uuencoded content if configured to do so (and attachments a allowed)
             if ((options & SharpDecodeOptions.UuDecode) == SharpDecodeOptions.UuDecode
                    && (options & SharpDecodeOptions.AllowAttachments) == SharpDecodeOptions.AllowAttachments)
                 UuDecode(path);
             // Date
-            _date = SharpMimeTools.parseDate(_headers.Date);
+            _date = SharpMimeTools.parseDate(Headers.Date);
             if (_date.Equals(DateTime.MinValue))
             {
-                String date = _headers["Received"];
+                String date = Headers["Received"];
                 if (date == null)
                     date = String.Empty;
                 if (date.IndexOf("\r\n") > 0)
@@ -441,11 +425,11 @@ namespace anmar.SharpMimeTools
                 _date = SharpMimeTools.parseDate(date);
             }
             // Subject
-            _subject = SharpMimeTools.parserfc2047Header(_headers.Subject);
+            _subject = SharpMimeTools.parserfc2047Header(Headers.Subject);
             // To
-            _to = SharpMimeAddressCollection.Parse(_headers.To);
+            To = SharpMimeAddressCollection.Parse(Headers.To);
             // From
-            SharpMimeAddressCollection from = SharpMimeAddressCollection.Parse(_headers.From);
+            SharpMimeAddressCollection from = SharpMimeAddressCollection.Parse(Headers.From);
             foreach (SharpMimeAddress item in from)
             {
                 _from_name = item["name"];
@@ -522,10 +506,10 @@ namespace anmar.SharpMimeTools
                                 if (html && part.Header.Contains("Content-ID") && (options & SharpDecodeOptions.NamedAnchors) == SharpDecodeOptions.NamedAnchors)
                                 {
                                     // There is a previous text body, so enclose it in <pre>
-                                    if (!_body_html && _body.Length > 0)
+                                    if (!HasHtmlBody && _body.Length > 0)
                                     {
                                         _body = String.Concat("<pre>", HttpUtility.HtmlEncode(_body), "</pre>");
-                                        _body_html = true;
+                                        HasHtmlBody = true;
                                     }
                                     // Add the anchor
                                     _body = String.Concat(_body, "<a name=\"", SharpMimeTools.Rfc2392Url(MessageID), "_", SharpMimeTools.Rfc2392Url(part.Header.ContentID), "\"></a>");
@@ -547,30 +531,30 @@ namespace anmar.SharpMimeTools
                     if ((part.Disposition == null || !part.Disposition.Equals("attachment"))
                         && (part.Header.SubType.Equals("plain") || part.Header.SubType.Equals("html")))
                     {
-                        bool body_was_html = _body_html;
+                        bool body_was_html = HasHtmlBody;
                         // HTML content not allowed
                         if (part.Header.SubType.Equals("html"))
                         {
                             if (!html)
                                 break;
                             else
-                                _body_html = true;
+                                HasHtmlBody = true;
                         }
                         if (html && part.Header.Contains("Content-ID") && (options & SharpDecodeOptions.NamedAnchors) == SharpDecodeOptions.NamedAnchors)
                         {
-                            _body_html = true;
+                            HasHtmlBody = true;
                         }
-                        if (_body_html && !body_was_html && !String.IsNullOrEmpty(_body))
+                        if (HasHtmlBody && !body_was_html && !String.IsNullOrEmpty(_body))
                         {
                             _body = String.Concat("<pre>", HttpUtility.HtmlEncode(_body), "</pre>");
                         }
                         // If message body is html and this part has a Content-ID field
                         // add an anchor to mark this body part
-                        if (_body_html && part.Header.Contains("Content-ID") && (options & SharpDecodeOptions.NamedAnchors) == SharpDecodeOptions.NamedAnchors)
+                        if (HasHtmlBody && part.Header.Contains("Content-ID") && (options & SharpDecodeOptions.NamedAnchors) == SharpDecodeOptions.NamedAnchors)
                         {
                             _body = String.Concat(_body, "<a name=\"", SharpMimeTools.Rfc2392Url(MessageID), "_", SharpMimeTools.Rfc2392Url(part.Header.ContentID), "\"></a>");
                         }
-                        if (_body_html && part.Header.SubType.Equals("plain"))
+                        if (HasHtmlBody && part.Header.SubType.Equals("plain"))
                         {
                             _body = String.Concat(_body, "<pre>", HttpUtility.HtmlEncode(part.BodyDecoded), "</pre>");
                         }
@@ -632,7 +616,7 @@ namespace anmar.SharpMimeTools
                         {
                             if (tnef.Attachments != null)
                             {
-                                _attachments.AddRange(tnef.Attachments);
+                                Attachments.AddRange(tnef.Attachments);
                             }
                             attachment.Close();
                             // Delete the raw tnef file
@@ -676,7 +660,7 @@ namespace anmar.SharpMimeTools
                             attachment.LastWriteTime = SharpMimeTools.parseDate(part.Header.ContentDispositionParameters["modification-date"]);
                         if (part.Header.Contains("Content-ID"))
                             attachment.ContentID = part.Header.ContentID;
-                        _attachments.Add(attachment);
+                        Attachments.Add(attachment);
                     }
                     break;
                 default:
@@ -760,7 +744,7 @@ namespace anmar.SharpMimeTools
                             if (stream.Length > 0)
                             {
                                 attachment.Size = stream.Length;
-                                _attachments.Add(attachment);
+                                Attachments.Add(attachment);
                             }
                             // When decoding to a file, close the stream.
                             if (attachment.SavedFile != null || stream.Length == 0)
