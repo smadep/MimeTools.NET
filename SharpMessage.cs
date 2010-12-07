@@ -25,6 +25,7 @@ using System.Collections;
 using System.IO;
 using System.Web;
 using System.Collections.Generic;
+using System.Text;
 
 namespace anmar.SharpMimeTools
 {
@@ -241,7 +242,7 @@ namespace anmar.SharpMimeTools
         /// </summary>
         /// <param name="message"><see cref="System.String" /> with the message content</param>
         public SharpMessage(String message)
-            : this(new MemoryStream(System.Text.Encoding.ASCII.GetBytes(message)))
+            : this(new MemoryStream(Encoding.ASCII.GetBytes(message)))
         {
         }
 
@@ -701,7 +702,7 @@ namespace anmar.SharpMimeTools
         {
             if (_body.Length == 0 || _body.IndexOf("begin ") == -1 || _body.IndexOf("end") == -1)
                 return;
-            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+            StringBuilder sb = new StringBuilder();
             using (StringReader reader = new StringReader(_body))
             {
                 Stream stream = null;
