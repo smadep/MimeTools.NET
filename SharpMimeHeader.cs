@@ -148,7 +148,7 @@ namespace anmar.SharpMimeTools
         /// </summary>
         /// <param name="name">field name</param>
         /// <remarks>Field names is case insentitive</remarks>
-        public String this[Object name]
+        public String this[string name]
         {
             get
             {
