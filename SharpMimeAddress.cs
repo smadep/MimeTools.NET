@@ -29,9 +29,6 @@ namespace anmar.SharpMimeTools
     /// </summary>
     public class SharpMimeAddress
     {
-        private readonly String name;
-        private readonly String address;
-
         /// <summary>
         /// Initializes a new address from a RFC 2822 name-addr specification string
         /// </summary>
@@ -39,31 +36,19 @@ namespace anmar.SharpMimeTools
         /// 
         public SharpMimeAddress(String dir)
         {
-            name = SharpMimeTools.parseFrom(dir, 1);
-            address = SharpMimeTools.parseFrom(dir, 2);
+            Name = SharpMimeTools.parseFrom(dir, 1);
+            Address = SharpMimeTools.parseFrom(dir, 2);
         }
-        
+
         /// <summary>
-        /// Gets the decoded address or name contained in the name-addr
+        /// Get the address name.
         /// </summary>
-        public String this[Object key]
-        {
-            get
-            {
-                if (key == null)
-                    throw new ArgumentNullException();
-                switch (key.ToString())
-                {
-                    case "0":
-                    case "name":
-                        return name;
-                    case "1":
-                    case "address":
-                        return address;
-                }
-                return null;
-            }
-        }
+        public string Name { get; private set; }
+
+        /// <summary>
+        /// Get the email address.
+        /// </summary>
+        public string Address { get; private set; }
 
         /// <summary>
         /// Gets the length of the decoded address
@@ -72,7 +57,7 @@ namespace anmar.SharpMimeTools
         {
             get
             {
-                return name.Length + address.Length;
+                return Name.Length + Address.Length;
             }
         }
         
@@ -82,12 +67,12 @@ namespace anmar.SharpMimeTools
         /// <returns></returns>
         public override String ToString()
         {
-            if (name.Equals(String.Empty) && address.Equals(String.Empty))
+            if (Name.Equals(String.Empty) && Address.Equals(String.Empty))
                 return "";
-            if (name.Equals(String.Empty))
-                return String.Format("<{0}>", address);
+            if (Name.Equals(String.Empty))
+                return String.Format("<{0}>", Address);
             else
-                return String.Format("\"{0}\" <{1}>", name, address);
+                return String.Format("\"{0}\" <{1}>", Name, Address);
         }
     }
 }

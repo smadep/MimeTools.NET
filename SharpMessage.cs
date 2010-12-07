@@ -433,10 +433,10 @@ namespace anmar.SharpMimeTools
             SharpMimeAddressCollection from = SharpMimeAddressCollection.Parse(Headers.From);
             foreach (SharpMimeAddress item in from)
             {
-                _from_name = item["name"];
-                _from_addr = item["address"];
+                _from_name = item.Name;
+                _from_addr = item.Address;
                 if (_from_name == null || _from_name.Equals(String.Empty))
-                    _from_name = item["address"];
+                    _from_name = item.Address;
             }
         }
 
