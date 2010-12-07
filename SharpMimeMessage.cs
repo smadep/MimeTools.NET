@@ -29,14 +29,13 @@ namespace anmar.SharpMimeTools
 	/// <summary>
 	/// rfc 2045 entity
 	/// </summary>
-	public class SharpMimeMessage : IEnumerable {
+	public class SharpMimeMessage : IEnumerable, IDisposable {
 		private struct MessageInfo {
 			internal long start;
 			internal long start_body;
 			internal long end;
 			internal SharpMimeHeader header;
 			internal SharpMimeMessageCollection parts;
-
             internal MessageInfo(SharpMimeMessageStream m, long start)
             {
                 this.start = start;
@@ -46,9 +45,7 @@ namespace anmar.SharpMimeTools
                 parts = new SharpMimeMessageCollection();
             }
 		}
-#if LOG
-		private static log4net.ILog log  = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
-#endif
+
         private readonly SharpMimeMessageStream message;
         private MessageInfo mi;
 
@@ -61,17 +58,198 @@ namespace anmar.SharpMimeTools
             this.message = new SharpMimeMessageStream(message);
             mi = new MessageInfo(this.message, this.message.Stream.Position);
         }
-        
-        private SharpMimeMessage(SharpMimeMessageStream message, long startpoint)
+
+        /// <summary>
+        /// Gets header fields for this entity
+        /// </summary>
+        /// <param name="name">field name</param>
+        /// <remarks>Field names is case insentitive</remarks>
+        public String this[Object name]
         {
-            this.message = message;
-            mi = new MessageInfo(this.message, startpoint);
+            get { return mi.header[name.ToString()]; }
         }
-        
-        private SharpMimeMessage(SharpMimeMessageStream message, long startpoint, long endpoint)
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public String Body
         {
-            this.message = message;
-            mi = new MessageInfo(this.message, startpoint) { end = endpoint };
+            get
+            {
+                return GetRawBody(false);
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public String BodyDecoded
+        {
+            get
+            {
+                switch (Header.ContentTransferEncoding)
+                {
+                    case "quoted-printable":
+                        return SharpMimeTools.QuotedPrintable2Unicode(mi.header.Encoding, GetRawBody(false));
+                    case "base64":
+                        Byte[] tmp = null;
+                        try
+                        {
+                            tmp = Convert.FromBase64String(GetRawBody(false));
+                        }
+                        catch (Exception)
+                        {
+                        }
+                        if (tmp != null)
+                            return mi.header.Encoding.GetString(tmp);
+                        else
+                            return String.Empty;
+                }
+                return GetRawBody(false);
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public String Disposition
+        {
+            get
+            {
+                return Header.ContentDispositionParameters["Content-Disposition"];
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public SharpMimeHeader Header
+        {
+            get
+            {
+                return mi.header;
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public bool IsBrowserDisplay
+        {
+            get
+            {
+                switch (mi.header.TopLevelMediaType)
+                {
+                    case MimeTopLevelMediaType.audio:
+                    case MimeTopLevelMediaType.image:
+                    case MimeTopLevelMediaType.text:
+                    case MimeTopLevelMediaType.video:
+                        return true;
+                    default:
+                        return false;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public bool IsMultipart
+        {
+            get
+            {
+                switch (mi.header.TopLevelMediaType)
+                {
+                    case MimeTopLevelMediaType.multipart:
+                    case MimeTopLevelMediaType.message:
+                        return true;
+                    default:
+                        return false;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public bool IsTextBrowserDisplay
+        {
+            get
+            {
+                if (mi.header.TopLevelMediaType.Equals(MimeTopLevelMediaType.text) && mi.header.SubType.Equals("plain"))
+                {
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public String Name
+        {
+            get
+            {
+                parse();
+                String param = Header.ContentDispositionParameters["filename"];
+
+                if (param == null)
+                {
+                    param = Header.ContentTypeParameters["name"];
+                }
+                if (param == null)
+                {
+                    param = Header.ContentLocationParameters["Content-Location"];
+                }
+                return SharpMimeTools.GetFileName(param);
+            }
+        }
+
+        internal SharpMimeMessageCollection Parts
+        {
+            get
+            {
+                parse();
+                return mi.parts;
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public int PartsCount
+        {
+            get
+            {
+                parse();
+                return mi.parts.Count;
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public long Size
+        {
+            get
+            {
+                parse();
+                return mi.end - mi.start_body;
+            }
         }
 		
         /// <summary>
@@ -108,15 +286,9 @@ namespace anmar.SharpMimeTools
                         try
                         {
                             buffer = Convert.FromBase64String(GetRawBody(true));
-#if LOG
-						} catch ( System.Exception e ) {
-							if ( log.IsErrorEnabled )
-								log.Error("Error Converting base64 string", e);
-#else
                         }
                         catch (Exception)
                         {
-#endif
                             error = true;
                         }
                         break;
@@ -127,10 +299,6 @@ namespace anmar.SharpMimeTools
                         raw = true;
                         break;
                     default:
-#if LOG
-						if ( log.IsErrorEnabled )
-							log.Error(System.String.Concat("Unsuported Content-Transfer-Encoding [", this.Header.ContentTransferEncoding, "]"));
-#endif
                         error = true;
                         break;
                 }
@@ -147,26 +315,15 @@ namespace anmar.SharpMimeTools
                             stream.Write(buffer, 0, buffer.Length);
                         }
                     }
-#if LOG
-				} catch ( System.Exception e ) {
-
-					if ( log.IsErrorEnabled )
-						log.Error("Error dumping body", e);
-#else
                 }
                 catch (Exception)
                 {
-#endif
                     error = true;
                 }
                 buffer = null;
             }
             else
             {
-#if LOG
-				if ( log.IsErrorEnabled )
-					log.Error("Can't write to stream");
-#endif
                 error = true;
             }
             return !error;
@@ -207,10 +364,6 @@ namespace anmar.SharpMimeTools
             FileInfo file = null;
             if (name != null)
             {
-#if LOG
-				if ( log.IsDebugEnabled )
-					log.Debug ("Found attachment: " + name);
-#endif
                 name = Path.GetFileName(name);
                 // Dump file contents
                 try
@@ -224,10 +377,6 @@ namespace anmar.SharpMimeTools
                     catch (ArgumentException)
                     {
                         file = null;
-#if LOG
-						if ( log.IsErrorEnabled )
-							log.Error(System.String.Concat("Filename [", System.IO.Path.Combine (path, name), "] is not allowed by the filesystem"));
-#endif
                     }
                     if (file != null && dir.Exists)
                     {
@@ -235,23 +384,13 @@ namespace anmar.SharpMimeTools
                         {
                             if (!file.Exists)
                             {
-#if LOG
-								if ( log.IsDebugEnabled )
-									log.Debug (System.String.Concat("Saving attachment [", file.FullName, "] ..."));
-#endif
                                 Stream stream = null;
                                 try
                                 {
                                     stream = file.Create();
-#if LOG	
-								} catch ( System.Exception e ) {
-									if ( log.IsErrorEnabled )
-										log.Error(System.String.Concat("Error creating file [", file.FullName, "]"), e);
-#else
                                 }
                                 catch (Exception)
                                 {
-#endif
                                 }
                                 bool error = !DumpBody(stream);
                                 if (stream != null)
@@ -259,19 +398,11 @@ namespace anmar.SharpMimeTools
                                 stream = null;
                                 if (error)
                                 {
-#if LOG
-									if ( log.IsErrorEnabled )
-										log.Error (System.String.Concat("Error writting file [", file.FullName, "] to disk"));
-#endif
                                     if (stream != null)
                                         file.Delete();
                                 }
                                 else
                                 {
-#if LOG
-									if ( log.IsDebugEnabled )
-										log.Debug (System.String.Concat("Attachment saved [", file.FullName, "]"));
-#endif
                                     // The file should be there
                                     file.Refresh();
                                     // Set file dates
@@ -282,31 +413,13 @@ namespace anmar.SharpMimeTools
                                     if (Header.ContentDispositionParameters.ContainsKey("read-date"))
                                         file.LastAccessTime = SharpMimeTools.parseDate(Header.ContentDispositionParameters["read-date"]);
                                 }
-#if LOG
-							} else if ( log.IsDebugEnabled ) {
-								log.Debug("File already exists, skipping.");
-#endif
                             }
-#if LOG
-						} else if ( log.IsDebugEnabled ) {
-							log.Debug(System.String.Concat ("Folder name mistmatch. [", dir.FullName, "]<>[", new System.IO.DirectoryInfo (file.Directory.FullName).FullName, "]"));
-#endif
                         }
-#if LOG
-					} else if ( file!=null && log.IsErrorEnabled ) {
-						log.Error ("Destination folder does not exists.");
-#endif
                     }
                     dir = null;
-#if LOG
-				} catch ( System.Exception e ) {
-					if ( log.IsErrorEnabled )
-						log.Error ("Error writting to disk: " + name, e);
-#else
                 }
                 catch (Exception)
                 {
-#endif
                     try
                     {
                         if (file != null)
@@ -343,6 +456,34 @@ namespace anmar.SharpMimeTools
             return Parts.Get(index);
         }
 
+        public void Dispose()
+        {
+            Dispose(true);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                if (message != null)
+                {
+                    message.Dispose();
+                }
+            }
+        }
+
+        private SharpMimeMessage(SharpMimeMessageStream message, long startpoint)
+        {
+            this.message = message;
+            mi = new MessageInfo(this.message, startpoint);
+        }
+
+        private SharpMimeMessage(SharpMimeMessageStream message, long startpoint, long endpoint)
+        {
+            this.message = message;
+            mi = new MessageInfo(this.message, startpoint) { end = endpoint };
+        }
+
         private String GetRawBody(bool rawparts)
         {
             parse();
@@ -367,15 +508,8 @@ namespace anmar.SharpMimeTools
         private bool parse()
         {
             
-#if LOG
-			if ( log.IsDebugEnabled ) log.Debug (System.String.Concat("Parsing requested, type: ", this.mi.header.TopLevelMediaType.ToString(), ", subtype: ", this.mi.header.SubType) );
-#endif
             if (!IsMultipart || Equals(mi.parts.Parent))
             {
-#if LOG
-				if ( log.IsDebugEnabled )
-					log.Debug ("Parsing requested and this is not a multipart or it is already parsed");
-#endif
                 return true;
             }
             switch (mi.header.TopLevelMediaType)
@@ -388,10 +522,6 @@ namespace anmar.SharpMimeTools
                 case MimeTopLevelMediaType.multipart:
                     this.message.SeekPoint(mi.start_body);
                     String line;
-#if LOG
-					if ( log.IsDebugEnabled )
-						log.Debug (System.String.Format("Looking for multipart {1}, byte {0}", this.mi.start_body, this.mi.header.ContentTypeParameters["boundary"]));
-#endif
                     mi.parts.Parent = this;
                     String boundary_start = String.Concat("--", mi.header.ContentTypeParameters["boundary"]);
                     String boundary_end = String.Concat("--", mi.header.ContentTypeParameters["boundary"], "--");
@@ -406,14 +536,7 @@ namespace anmar.SharpMimeTools
                             if (mi.parts.Count > 0)
                             {
                                 mi.parts.Get(mi.parts.Count - 1).mi.end = this.message.Position_preRead;
-#if LOG
-								if ( log.IsDebugEnabled )
-									log.Debug (System.String.Format("End part {1} at byte {0}", this.message.Position_preRead, boundary_start));
-#endif
                             }
-#if LOG
-							if ( log.IsDebugEnabled ) log.Debug (System.String.Format("Part     {1} found at byte {0}", this.message.Position_preRead, boundary_start));
-#endif
                             SharpMimeMessage msg = new SharpMimeMessage(this.message, this.message.Position);
                             mi.parts.Add(msg);
                             // Match end boundary line
@@ -424,14 +547,6 @@ namespace anmar.SharpMimeTools
                             if (mi.parts.Count > 0)
                             {
                                 mi.parts.Get(mi.parts.Count - 1).mi.end = this.message.Position_preRead;
-#if LOG
-								if ( log.IsDebugEnabled )
-									log.Debug (System.String.Format("End part {1} at byte {0}", this.message.Position_preRead, boundary_end));
-#endif
-#if LOG
-							} else if ( log.IsDebugEnabled ) {
-								log.Debug (System.String.Format("End part {1} at byte {0}", this.mi.end, boundary_end));
-#endif
                             }
                             break;
                         }
@@ -440,200 +555,5 @@ namespace anmar.SharpMimeTools
             }
             return !false;
         }
-		
-        /// <summary>
-		/// Gets header fields for this entity
-		/// </summary>
-		/// <param name="name">field name</param>
-		/// <remarks>Field names is case insentitive</remarks>
-        public String this[Object name]
-        {
-            get { return mi.header[name.ToString()]; }
-        }
-		
-        /// <summary>
-		/// 
-		/// </summary>
-		/// <returns></returns>
-        public String Body
-        {
-            get
-            {
-                return GetRawBody(false);
-            }
-        }
-		
-        /// <summary>
-		/// 
-		/// </summary>
-		/// <returns></returns>
-        public String BodyDecoded
-        {
-            get
-            {
-                switch (Header.ContentTransferEncoding)
-                {
-                    case "quoted-printable":
-                        return SharpMimeTools.QuotedPrintable2Unicode(mi.header.Encoding, GetRawBody(false));
-                    case "base64":
-                        Byte[] tmp = null;
-                        try
-                        {
-                            tmp = Convert.FromBase64String(GetRawBody(false));
-#if LOG
-						} catch ( System.Exception e ) {
-							if ( log.IsErrorEnabled )
-								log.Error("Error dumping body", e);
-#else
-                        }
-                        catch (Exception)
-                        {
-#endif
-                        }
-                        if (tmp != null)
-                            return mi.header.Encoding.GetString(tmp);
-                        else
-                            return String.Empty;
-                }
-                return GetRawBody(false);
-            }
-        }
-		
-        /// <summary>
-		/// 
-		/// </summary>
-		/// <returns></returns>
-        public String Disposition
-        {
-            get
-            {
-                return Header.ContentDispositionParameters["Content-Disposition"];
-            }
-        }
-		
-        /// <summary>
-		/// 
-		/// </summary>
-		/// <returns></returns>
-        public SharpMimeHeader Header
-        {
-            get
-            {
-                return mi.header;
-            }
-        }
-		
-        /// <summary>
-		/// 
-		/// </summary>
-		/// <returns></returns>
-        public bool IsBrowserDisplay
-        {
-            get
-            {
-                switch (mi.header.TopLevelMediaType)
-                {
-                    case MimeTopLevelMediaType.audio:
-                    case MimeTopLevelMediaType.image:
-                    case MimeTopLevelMediaType.text:
-                    case MimeTopLevelMediaType.video:
-                        return true;
-                    default:
-                        return false;
-                }
-            }
-        }
-		
-        /// <summary>
-		/// 
-		/// </summary>
-		/// <returns></returns>
-        public bool IsMultipart
-        {
-            get
-            {
-                switch (mi.header.TopLevelMediaType)
-                {
-                    case MimeTopLevelMediaType.multipart:
-                    case MimeTopLevelMediaType.message:
-                        return true;
-                    default:
-                        return false;
-                }
-            }
-        }
-		
-        /// <summary>
-		/// 
-		/// </summary>
-		/// <returns></returns>
-        public bool IsTextBrowserDisplay
-        {
-            get
-            {
-                if (mi.header.TopLevelMediaType.Equals(MimeTopLevelMediaType.text) && mi.header.SubType.Equals("plain"))
-                {
-                    return true;
-                }
-                else
-                {
-                    return false;
-                }
-            }
-        }
-		
-        /// <summary>
-		/// 
-		/// </summary>
-		/// <returns></returns>
-        public String Name
-        {
-            get
-            {
-                parse();
-                String param = Header.ContentDispositionParameters["filename"];
-
-                if (param == null)
-                {
-                    param = Header.ContentTypeParameters["name"];
-                }
-                if (param == null)
-                {
-                    param = Header.ContentLocationParameters["Content-Location"];
-                }
-                return SharpMimeTools.GetFileName(param);
-            }
-        }
-        
-        internal SharpMimeMessageCollection Parts
-        {
-            get
-            {
-                parse();
-                return mi.parts;
-            }
-        }
-		
-        /// <summary>
-		/// 
-		/// </summary>
-		/// <returns></returns>
-		public int PartsCount {
-			get {
-				parse();
-				return mi.parts.Count;
-			}
-		}
-		
-        /// <summary>
-		/// 
-		/// </summary>
-		/// <returns></returns>
-		public long Size {
-			get {
-				parse();
-				return mi.end - mi.start_body;
-			}
-		}
-	}
+    }
 }

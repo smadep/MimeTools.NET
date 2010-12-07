@@ -8,9 +8,6 @@ namespace anmar.SharpMimeTools
     /// </summary>
     public class SharpAttachment
     {
-#if LOG
-				private static log4net.ILog log  = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
-#endif
         private DateTime _ctime = DateTime.MinValue;
         private DateTime _mtime = DateTime.MinValue;
         private String _name;
@@ -25,6 +22,11 @@ namespace anmar.SharpMimeTools
         {
             _stream = stream;
         }
+
+        public SharpAttachment()
+        {
+            _stream = new MemoryStream();
+        }
         
         /// <summary>
         /// Initializes a new instance of the <see cref="anmar.SharpMimeTools.SharpAttachment" /> class based on the supplied <see cref="System.IO.FileInfo" />.
@@ -35,6 +37,101 @@ namespace anmar.SharpMimeTools
             _saved_file = file;
             _ctime = file.CreationTime;
             _mtime = file.LastWriteTime;
+        }
+
+        /// <summary>
+        /// Gets or sets the Content-ID of this attachment.
+        /// </summary>
+        /// <value>Content-ID header of this instance. Or the <b>null</b> reference.</value>
+        public String ContentID { get; set; }
+
+        /// <summary>
+        /// Gets or sets the time when the file associated with this attachment was created.
+        /// </summary>
+        /// <value>The time this attachment was last written to.</value>
+        public DateTime CreationTime
+        {
+            get { return _ctime; }
+            set { _ctime = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets value indicating whether the current instance is an inline attachment.
+        /// </summary>
+        /// <value><b>true</b> is it's an inline attachment; <b>false</b> otherwise.</value>
+        public bool Inline { get; set; }
+
+        /// <summary>
+        /// Gets or sets the time when the file associated with this attachment was last written to.
+        /// </summary>
+        /// <value>The time this attachment was last written to.</value>
+        public DateTime LastWriteTime
+        {
+            get { return _mtime; }
+            set { _mtime = value; }
+        }
+
+        /// <summary>
+        /// Gets or sets the name of the attachment.
+        /// </summary>
+        /// <value>The name of the attachment.</value>
+        public String Name
+        {
+            get { return _name; }
+            set
+            {
+                String name = SharpMimeTools.GetFileName(value);
+                if (value != null && name == null && _name != null && Path.HasExtension(value))
+                {
+                    name = Path.ChangeExtension(_name, Path.GetExtension(value));
+                }
+                _name = name;
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets top-level media type for this <see cref="SharpAttachment" /> instance
+        /// </summary>
+        /// <value>Top-level media type from Content-Type header field of this <see cref="SharpAttachment" /> instance</value>
+        public String MimeMediaSubType { get; set; }
+
+        /// <summary>
+        /// Gets or sets SubType for this <see cref="SharpAttachment" /> instance
+        /// </summary>
+        /// <value>SubType from Content-Type header field of this <see cref="SharpAttachment" /> instance</value>
+        public MimeTopLevelMediaType MimeTopLevelMediaType { get; set; }
+
+        /// <summary>
+        /// Gets or sets size (in bytes) for this <see cref="SharpAttachment" /> instance.
+        /// </summary>
+        /// <value>Size of this <see cref="SharpAttachment" /> instance</value>
+        public long Size { get; set; }
+
+        /// <summary>
+        /// Gets the <see cref="System.IO.FileInfo" /> of the saved file.
+        /// </summary>
+        /// <value>The <see cref="System.IO.FileInfo" /> of the saved file.</value>
+        public FileInfo SavedFile
+        {
+            get { return _saved_file; }
+        }
+
+        /// <summary>
+        /// Gets the <see cref="System.IO.Stream " /> of the attachment.
+        /// </summary>
+        /// <value>The <see cref="System.IO.Stream " /> of the attachment.</value>
+        /// <remarks>If the underling stream exists, it's returned. If the file has been saved, it opens <see cref="SavedFile" /> for reading.</remarks>
+        public Stream Stream
+        {
+            get
+            {
+                if (_stream != null)
+                    return _stream;
+                else if (_saved_file != null)
+                    return _saved_file.OpenRead();
+                else
+                    return null;
+            }
         }
         
         /// <summary>
@@ -68,19 +165,11 @@ namespace anmar.SharpMimeTools
             }
             if (!_stream.CanRead)
             {
-#if LOG
-						if ( log.IsErrorEnabled )
-							log.Error(System.String.Concat("The provided stream does not support reading."));
-#endif
                 return null;
             }
             FileInfo file = new FileInfo(Path.Combine(path, _name));
             if (!file.Directory.Exists)
             {
-#if LOG
-						if ( log.IsErrorEnabled )
-							log.Error(System.String.Concat("Destination folder [", file.Directory.FullName, "] does not exist"));
-#endif
                 return null;
             }
             if (file.Exists)
@@ -90,24 +179,14 @@ namespace anmar.SharpMimeTools
                     try
                     {
                         file.Delete();
-#if LOG						
-							} catch ( System.Exception e ) {
-								if ( log.IsErrorEnabled )
-									log.Error(System.String.Concat("Error deleting existing file[", file.FullName, "]"), e);
-#else
                     }
                     catch (Exception)
                     {
-#endif
                         return null;
                     }
                 }
                 else
                 {
-#if LOG
-							if ( log.IsErrorEnabled )
-								log.Error(System.String.Concat("Destination file [", file.FullName, "] already exists"));
-#endif
                     // Though the file already exists, we set the times
                     if (_mtime != DateTime.MinValue && file.LastWriteTime != _mtime)
                         file.LastWriteTime = _mtime;
@@ -128,113 +207,12 @@ namespace anmar.SharpMimeTools
                 if (_ctime != DateTime.MinValue)
                     file.CreationTime = _ctime;
                 _saved_file = file;
-#if LOG
-					} catch ( System.Exception e ) {
-						if ( log.IsErrorEnabled )
-							log.Error(System.String.Concat("Error writting file [", file.FullName, "]"), e);
-#else
             }
             catch (Exception)
             {
-#endif
                 return null;
             }
             return file;
-        }
-        
-        /// <summary>
-        /// Gets or sets the Content-ID of this attachment.
-        /// </summary>
-        /// <value>Content-ID header of this instance. Or the <b>null</b> reference.</value>
-        public String ContentID { get; set; }
-        
-        /// <summary>
-        /// Gets or sets the time when the file associated with this attachment was created.
-        /// </summary>
-        /// <value>The time this attachment was last written to.</value>
-        public DateTime CreationTime
-        {
-            get { return _ctime; }
-            set { _ctime = value; }
-        }
-        
-        /// <summary>
-        /// Gets or sets value indicating whether the current instance is an inline attachment.
-        /// </summary>
-        /// <value><b>true</b> is it's an inline attachment; <b>false</b> otherwise.</value>
-        public bool Inline { get; set; }
-        
-        /// <summary>
-        /// Gets or sets the time when the file associated with this attachment was last written to.
-        /// </summary>
-        /// <value>The time this attachment was last written to.</value>
-        public DateTime LastWriteTime
-        {
-            get { return _mtime; }
-            set { _mtime = value; }
-        }
-        
-        /// <summary>
-        /// Gets or sets the name of the attachment.
-        /// </summary>
-        /// <value>The name of the attachment.</value>
-        public String Name
-        {
-            get { return _name; }
-            set
-            {
-                String name = SharpMimeTools.GetFileName(value);
-                if (value != null && name == null && _name != null && Path.HasExtension(value))
-                {
-                    name = Path.ChangeExtension(_name, Path.GetExtension(value));
-                }
-                _name = name;
-            }
-        }
-        
-        /// <summary>
-        /// Gets or sets top-level media type for this <see cref="SharpAttachment" /> instance
-        /// </summary>
-        /// <value>Top-level media type from Content-Type header field of this <see cref="SharpAttachment" /> instance</value>
-        public String MimeMediaSubType { get; set; }
-        
-        /// <summary>
-        /// Gets or sets SubType for this <see cref="SharpAttachment" /> instance
-        /// </summary>
-        /// <value>SubType from Content-Type header field of this <see cref="SharpAttachment" /> instance</value>
-        public MimeTopLevelMediaType MimeTopLevelMediaType { get; set; }
-        
-        /// <summary>
-        /// Gets or sets size (in bytes) for this <see cref="SharpAttachment" /> instance.
-        /// </summary>
-        /// <value>Size of this <see cref="SharpAttachment" /> instance</value>
-        public long Size { get; set; }
-        
-        /// <summary>
-        /// Gets the <see cref="System.IO.FileInfo" /> of the saved file.
-        /// </summary>
-        /// <value>The <see cref="System.IO.FileInfo" /> of the saved file.</value>
-        public FileInfo SavedFile
-        {
-            get { return _saved_file; }
-        }
-        
-        /// <summary>
-        /// Gets the <see cref="System.IO.Stream " /> of the attachment.
-        /// </summary>
-        /// <value>The <see cref="System.IO.Stream " /> of the attachment.</value>
-        /// <remarks>If the underling stream exists, it's returned. If the file has been saved, it opens <see cref="SavedFile" /> for reading.</remarks>
-        public Stream Stream
-        {
-            get
-            {
-                if (_stream != null)
-                    return _stream;
-                else if (_saved_file != null)
-                    return _saved_file.OpenRead();
-                else
-                    return null;
-            }
         }
     }
 }

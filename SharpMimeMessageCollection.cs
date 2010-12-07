@@ -34,6 +34,16 @@ namespace anmar.SharpMimeTools
             get { return Get(index); }
         }
 
+        public int Count
+        {
+            get
+            {
+                return messages.Count;
+            }
+        }
+
+        public SharpMimeMessage Parent { get; set; }
+
         public void Add(SharpMimeMessage msg)
         {
             messages.Add(msg);
@@ -53,15 +63,5 @@ namespace anmar.SharpMimeTools
         {
             messages.Clear();
         }
-        
-        public int Count
-        {
-            get
-            {
-                return messages.Count;
-            }
-        }
-
-        public SharpMimeMessage Parent { get; set; }
     }
 }

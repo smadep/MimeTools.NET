@@ -32,11 +32,71 @@ namespace anmar.SharpMimeTools
     /// </summary>
     /// <remarks>Only tnef attributes related to attachments are decoded right now. All the MAPI properties encoded in the stream (rtf body, ...) are ignored. <br />
     /// While decoding, the cheksum of each attribute is verified to ensure the tnef stream is not corupt.</remarks>
-    public class SharpTnefMessage
+    public class SharpTnefMessage : IDisposable
     {
-#if LOG
-		private static log4net.ILog logger = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
-#endif
+        private enum TnefLvlType : byte
+        {
+            Message = 0x01,
+            Attachment = 0x02,
+            Unknown = Byte.MaxValue
+        }
+
+        // TNEF attributes
+        private enum TnefAttribute : ushort
+        {
+            Owner = 0x0000,
+            SentFor = 0x0001,
+            Delegate = 0x0002,
+            DateStart = 0x0006,
+            DateEnd = 0x0007,
+            AIDOwner = 0x0008,
+            Requestres = 0x0009,
+            From = 0x8000,
+            Subject = 0x8004,
+            DateSent = 0x8005,
+            DateRecd = 0x8006,
+            MessageStatus = 0x8007,
+            MessageClass = 0x8008,
+            MessageId = 0x8009,
+            ParentId = 0x800a,
+            ConversationId = 0x800b,
+            Body = 0x800c,
+            Priority = 0x800d,
+            AttachData = 0x800f,
+            AttachTitle = 0x8010,
+            AttachMetafile = 0x8011,
+            AttachCreateDate = 0x8012,
+            AttachModifyDate = 0x8013,
+            DateModify = 0x8020,
+            AttachTransportFilename = 0x9001,
+            AttachRendData = 0x9002,
+            MapiProps = 0x9003,
+            RecipTable = 0x9004,
+            Attachment = 0x9005,
+            TnefVersion = 0x9006,
+            OEMCodepage = 0x9007,
+            OriginalMessageClass = 0x9008,
+            Unknown = UInt16.MaxValue
+        }
+
+        // TNEF data types
+        private enum TnefDataType : ushort
+        {
+            atpTriples = 0x0000,
+            atpString = 0x0001,
+            atpText = 0x0002,
+            atpDate = 0x0003,
+            atpShort = 0x0004,
+            atpLong = 0x0005,
+            atpByte = 0x0006,
+            atpWord = 0x0007,
+            atpDword = 0x0008,
+            atpMax = 0x0009,
+            Unknown = UInt16.MaxValue
+        }
+
+        // TNEF signature
+        private const int TnefSignature = 0x223e9f78;
         private BinaryReader _reader;
         private ArrayList _attachments;
         private String _body;
@@ -109,33 +169,25 @@ namespace anmar.SharpMimeTools
             int sig = ReadInt();
             if (sig != TnefSignature)
             {
-#if LOG
-				if ( logger.IsErrorEnabled )
-					logger.Error(System.String.Concat("Tnef signature not matched [", sig, "]<>[", TnefSignature, "]"));
-#endif
                 return false;
             }
             bool error = false;
             _attachments = new ArrayList();
             ushort key = ReadUInt16();
-            System.Text.Encoding enc = anmar.SharpMimeTools.SharpMimeHeader.EncodingDefault;
-            anmar.SharpMimeTools.SharpAttachment attachment_cur = null;
+            System.Text.Encoding enc = SharpMimeHeader.EncodingDefault;
+            SharpAttachment attachment_cur = null;
             for (Byte cur = ReadByte(); cur != Byte.MinValue; cur = ReadByte())
             {
-                TnefLvlType lvl = (TnefLvlType)anmar.SharpMimeTools.SharpMimeTools.ParseEnum(typeof(TnefLvlType), cur, TnefLvlType.Unknown);
+                TnefLvlType lvl = (TnefLvlType)SharpMimeTools.ParseEnum(typeof(TnefLvlType), cur, TnefLvlType.Unknown);
                 // Type
                 int type = ReadInt();
                 // Size
                 int size = ReadInt();
                 // Attibute name and type
-                TnefAttribute att_n = (TnefAttribute)anmar.SharpMimeTools.SharpMimeTools.ParseEnum(typeof(TnefAttribute), (ushort)((type << 16) >> 16), TnefAttribute.Unknown);
-                TnefDataType att_t = (TnefDataType)anmar.SharpMimeTools.SharpMimeTools.ParseEnum(typeof(TnefDataType), (ushort)(type >> 16), TnefDataType.Unknown);
+                TnefAttribute att_n = (TnefAttribute)SharpMimeTools.ParseEnum(typeof(TnefAttribute), (ushort)((type << 16) >> 16), TnefAttribute.Unknown);
+                TnefDataType att_t = (TnefDataType)SharpMimeTools.ParseEnum(typeof(TnefDataType), (ushort)(type >> 16), TnefDataType.Unknown);
                 if (lvl == TnefLvlType.Unknown || att_n == TnefAttribute.Unknown || att_t == TnefDataType.Unknown)
                 {
-#if LOG
-				if ( logger.IsErrorEnabled )
-					logger.Error(System.String.Concat("Attribute data is not valid [", lvl ,"] [type=", type, "->(", att_n, ",", att_t, ")] [size=", size, "]"));
-#endif
                     error = true;
                     break;
                 }
@@ -146,18 +198,10 @@ namespace anmar.SharpMimeTools
                 // Verify checksum
                 if (!VerifyChecksum(buffer, checksum))
                 {
-#if LOG
-				if ( logger.IsErrorEnabled )
-					logger.Error(System.String.Concat("Checksum validation failed [", lvl ,"] [type=", type, "->(", att_n, ",", att_t, ")] [size=", size, "(", (buffer!=null)?buffer.Length:0, ")] [checksum=", checksum, "]"));
-#endif
                     error = true;
                     break;
                 }
                 size = buffer.Length;
-#if LOG
-				if ( logger.IsDebugEnabled )
-					logger.Debug(System.String.Concat("[", lvl ,"] [type=", type, "->(", att_n, ",", att_t, ")] [size=", size, "(", (buffer!=null)?buffer.Length:0, ")] [checksum=", checksum, "]"));
-#endif
                 if (lvl == TnefLvlType.Message)
                 {
                     // Text body
@@ -182,11 +226,6 @@ namespace anmar.SharpMimeTools
                             try
                             {
                                 enc = System.Text.Encoding.GetEncoding((int)codepage1);
-#if LOG
-								if ( logger.IsDebugEnabled ) {
-									logger.Debug(System.String.Concat("Now using [", enc.EncodingName, "] encoding to decode strings."));
-								}
-#endif
                             }
                             catch (Exception) { }
                         }
@@ -200,14 +239,15 @@ namespace anmar.SharpMimeTools
                         String name = String.Concat("generated_", key, "_", (_attachments.Count + 1), ".binary");
                         if (path == null)
                         {
-                            attachment_cur = new anmar.SharpMimeTools.SharpAttachment(new MemoryStream());
+                            attachment_cur = new SharpAttachment();
                         }
                         else
                         {
-                            attachment_cur = new anmar.SharpMimeTools.SharpAttachment(new FileInfo(Path.Combine(path, name)));
+                            attachment_cur = new SharpAttachment(new FileInfo(Path.Combine(path, name)));
                         }
-                        attachment_cur.Name = name;
+
                         // Attachment name
+                        attachment_cur.Name = name;
                     }
                     else if (att_n == TnefAttribute.AttachTitle)
                     {
@@ -268,10 +308,6 @@ namespace anmar.SharpMimeTools
                                 }
                                 catch (Exception e)
                                 {
-#if LOG
-									if ( logger.IsErrorEnabled )
-										logger.Error(System.String.Concat("Error writting file [", attachment_cur.SavedFile.FullName, "]"), e);
-#endif
                                     error = true;
                                     break;
                                 }
@@ -310,6 +346,28 @@ namespace anmar.SharpMimeTools
             if (_attachments.Count == 0)
                 _attachments = null;
             return !error;
+        }
+
+        private static void ReadMapi(Byte[] data)
+        {
+            int pos = 0;
+            ushort count = (ushort)(data[pos++] + (data[pos++] << 8));
+            if (count == 0)
+                return;
+            //FIXME: Read each mapi prop
+        }
+
+        private static bool VerifyChecksum(Byte[] data, ushort checksum)
+        {
+            if (data == null)
+                return false;
+            ushort checksum_calc = 0;
+            for (int i = 0, count = data.Length; i < count; i++)
+            {
+                checksum_calc += data[i];
+            }
+            checksum_calc = (ushort)(checksum_calc % 65536);
+            return (checksum_calc == checksum);
         }
 
         private Byte ReadByte()
@@ -366,95 +424,21 @@ namespace anmar.SharpMimeTools
             }
             return cur;
         }
-        
-        private static void ReadMapi(Byte[] data)
+
+        public void Dispose()
         {
-            int pos = 0;
-            ushort count = (ushort)(data[pos++] + (data[pos++] << 8));
-#if LOG
-				if ( logger.IsDebugEnabled )
-					logger.Debug(System.String.Concat("[MAPIPROPS] Found [", count ,"]"));
-#endif
-            if (count == 0)
-                return;
-            //FIXME: Read each mapi prop
-        }
-        
-        private static bool VerifyChecksum(Byte[] data, ushort checksum)
-        {
-            if (data == null)
-                return false;
-            ushort checksum_calc = 0;
-            for (int i = 0, count = data.Length; i < count; i++)
-            {
-                checksum_calc += data[i];
-            }
-            checksum_calc = (ushort)(checksum_calc % 65536);
-            return (checksum_calc == checksum);
+            Dispose(true);
         }
 
-        // TNEF signature
-        private const int TnefSignature = 0x223e9f78;
-        
-        private enum TnefLvlType : byte
+        protected virtual void Dispose(bool disposing)
         {
-            Message = 0x01,
-            Attachment = 0x02,
-            Unknown = Byte.MaxValue
-        }
-        
-        // TNEF attributes
-        private enum TnefAttribute : ushort
-        {
-            Owner = 0x0000,
-            SentFor = 0x0001,
-            Delegate = 0x0002,
-            DateStart = 0x0006,
-            DateEnd = 0x0007,
-            AIDOwner = 0x0008,
-            Requestres = 0x0009,
-            From = 0x8000,
-            Subject = 0x8004,
-            DateSent = 0x8005,
-            DateRecd = 0x8006,
-            MessageStatus = 0x8007,
-            MessageClass = 0x8008,
-            MessageId = 0x8009,
-            ParentId = 0x800a,
-            ConversationId = 0x800b,
-            Body = 0x800c,
-            Priority = 0x800d,
-            AttachData = 0x800f,
-            AttachTitle = 0x8010,
-            AttachMetafile = 0x8011,
-            AttachCreateDate = 0x8012,
-            AttachModifyDate = 0x8013,
-            DateModify = 0x8020,
-            AttachTransportFilename = 0x9001,
-            AttachRendData = 0x9002,
-            MapiProps = 0x9003,
-            RecipTable = 0x9004,
-            Attachment = 0x9005,
-            TnefVersion = 0x9006,
-            OEMCodepage = 0x9007,
-            OriginalMessageClass = 0x9008,
-            Unknown = UInt16.MaxValue
-        }
-        
-        // TNEF data types
-        private enum TnefDataType : ushort
-        {
-            atpTriples = 0x0000,
-            atpString = 0x0001,
-            atpText = 0x0002,
-            atpDate = 0x0003,
-            atpShort = 0x0004,
-            atpLong = 0x0005,
-            atpByte = 0x0006,
-            atpWord = 0x0007,
-            atpDword = 0x0008,
-            atpMax = 0x0009,
-            Unknown = UInt16.MaxValue
+            if (disposing)
+            {
+                if (_reader != null)
+                {
+                    _reader.Close();
+                }
+            }
         }
     }
 }

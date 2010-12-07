@@ -16,13 +16,28 @@ namespace anmar.SharpMimeTools
                     Add(new SharpMimeAddress(token));
             }
         }
-        
+
         public SharpMimeAddress this[int index]
         {
             get
             {
                 return Get(index);
             }
+        }
+
+        public int Count
+        {
+            get
+            {
+                return list.Count;
+            }
+        }
+
+        public static SharpMimeAddressCollection Parse(String text)
+        {
+            if (text == null)
+                throw new ArgumentNullException();
+            return new SharpMimeAddressCollection(text);
         }
         
         public IEnumerator GetEnumerator()
@@ -38,21 +53,6 @@ namespace anmar.SharpMimeTools
         public SharpMimeAddress Get(int index)
         {
             return (SharpMimeAddress)list[index];
-        }
-        
-        public static SharpMimeAddressCollection Parse(String text)
-        {
-            if (text == null)
-                throw new ArgumentNullException();
-            return new SharpMimeAddressCollection(text);
-        }
-        
-        public int Count
-        {
-            get
-            {
-                return list.Count;
-            }
         }
         
         public override string ToString()

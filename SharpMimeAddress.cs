@@ -64,6 +64,17 @@ namespace anmar.SharpMimeTools
                 return null;
             }
         }
+
+        /// <summary>
+        /// Gets the length of the decoded address
+        /// </summary>
+        public int Length
+        {
+            get
+            {
+                return name.Length + address.Length;
+            }
+        }
         
         /// <summary>
         /// 
@@ -77,17 +88,6 @@ namespace anmar.SharpMimeTools
                 return String.Format("<{0}>", address);
             else
                 return String.Format("\"{0}\" <{1}>", name, address);
-        }
-        
-        /// <summary>
-        /// Gets the length of the decoded address
-        /// </summary>
-        public int Length
-        {
-            get
-            {
-                return name.Length + address.Length;
-            }
         }
     }
 }

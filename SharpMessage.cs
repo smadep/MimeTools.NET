@@ -64,9 +64,6 @@ namespace anmar.SharpMimeTools
     /// </example>
     public sealed class SharpMessage
     {
-#if LOG
-		private static log4net.ILog log  = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
-#endif
         private ArrayList _attachments;
         private String _body = String.Empty;
         private bool _body_html;
@@ -220,10 +217,6 @@ namespace anmar.SharpMimeTools
                 types = MimeTopLevelMediaType.text | MimeTopLevelMediaType.multipart | MimeTopLevelMediaType.message;
             if (path != null && (options & SharpDecodeOptions.CreateFolder) != SharpDecodeOptions.CreateFolder && !Directory.Exists(path))
             {
-#if LOG
-				if ( log.IsErrorEnabled )
-					log.Error(System.String.Concat("Path [", path, "] does not exist and 'SharpDecodeOptions.CreateFolder' was not specified."));
-#endif
                 path = null;
             }
             ParseMessage(message, types, options, preferredtextsubtype, path);
@@ -241,10 +234,6 @@ namespace anmar.SharpMimeTools
         {
             if (path != null && (options & SharpDecodeOptions.CreateFolder) != SharpDecodeOptions.CreateFolder && !Directory.Exists(path))
             {
-#if LOG
-				if ( log.IsErrorEnabled )
-					log.Error(System.String.Concat("Path [", path, "] does not exist and 'SharpDecodeOptions.CreateFolder' was not specified."));
-#endif
                 path = null;
             }
             ParseMessage(message, types, options, preferredtextsubtype, path);
@@ -368,6 +357,61 @@ namespace anmar.SharpMimeTools
             return _headers.GetHeaderField(name, String.Empty, true, true);
         }
 
+        /// <summary>
+        /// Set the URL used to reference embedded parts from the HTML body (as specified on RFC2392)
+        /// </summary>
+        /// <param name="attachmentsurl">URL used to reference embedded parts from the HTML body.</param>
+        /// <remarks>The supplied URL will be replaced with the following tokens for each attachment:<br />
+        /// <ul>
+        ///  <li><b>[MessageID]</b>: Will be replaced with the <see cref="MessageID" /> of the current instance.</li>
+        ///  <li><b>[ContentID]</b>: Will be replaced with the <see cref="anmar.SharpMimeTools.SharpAttachment.ContentID" /> of the attachment.</li>
+        ///  <li><b>[Name]</b>: Will be replaced with the <see cref="anmar.SharpMimeTools.SharpAttachment.Name" /> of the attachment (or with <see cref="System.IO.FileInfo.Name" /> from <see cref="anmar.SharpMimeTools.SharpAttachment.SavedFile" /> if the instance has been already saved to disk).</li>
+        /// </ul>
+        ///</remarks>
+        public void SetUrlBase(String attachmentsurl)
+        {
+            // Not a html boy or not body at all
+            if (!_body_html || _body.Length == 0)
+                return;
+            // No references found, so nothing to do
+            if (_body.IndexOf("cid:") == -1 && _body.IndexOf("mid:") == -1)
+                return;
+            String msgid = SharpMimeTools.Rfc2392Url(MessageID);
+            // There is a base url and attachments, so try refererencing them properly
+            if (attachmentsurl != null && _attachments != null && _attachments.Count > 0)
+            {
+                for (int i = 0, count = _attachments.Count; i < count; i++)
+                {
+                    SharpAttachment attachment = (SharpAttachment)_attachments[i];
+                    if (attachment.ContentID != null)
+                    {
+                        String conid = SharpMimeTools.Rfc2392Url(attachment.ContentID);
+                        if (conid.Length > 0)
+                        {
+                            if (_body.IndexOf("cid:" + conid) != -1)
+                                _body = _body.Replace("cid:" + conid, ReplaceUrlTokens(attachmentsurl, attachment));
+                            if (!String.IsNullOrEmpty(msgid) && _body.IndexOf(String.Format("mid:{0}/{1}", msgid, conid)) != -1)
+                                _body = _body.Replace(String.Format("mid:{0}/{1}", msgid, conid), ReplaceUrlTokens(attachmentsurl, attachment));
+                            // No more references found, so nothing to do
+                            if (_body.IndexOf("cid:") == -1 && _body.IndexOf("mid:") == -1)
+                                break;
+                        }
+                    }
+                }
+            }
+            // The rest references must be to text parts
+            // so rewrite them to refer to the named anchors added by ParseMessage
+            if (_body.IndexOf("cid:") != -1)
+            {
+                _body = _body.Replace("cid:", String.Format("#{0}_", msgid));
+            }
+            if (msgid.Length > 0 && _body.IndexOf("mid:") != -1)
+            {
+                _body = _body.Replace(String.Format("mid:{0}/", msgid), String.Format("#{0}_", msgid));
+                _body = _body.Replace("mid:" + msgid, "#" + msgid);
+            }
+        }
+
         private void ParseMessage(Stream stream, MimeTopLevelMediaType types, SharpDecodeOptions options, String preferredtextsubtype, String path)
         {
             _attachments = new ArrayList();
@@ -414,10 +458,6 @@ namespace anmar.SharpMimeTools
         {
             if ((types & part.Header.TopLevelMediaType) != part.Header.TopLevelMediaType)
             {
-#if LOG
-				if ( log.IsDebugEnabled )
-					log.Debug (System.String.Concat("Mime-Type [", part.Header.TopLevelMediaType, "] is not an accepted Mime-Type. Skiping part."));
-#endif
                 return;
             }
             switch (part.Header.TopLevelMediaType)
@@ -454,10 +494,6 @@ namespace anmar.SharpMimeTools
                                     || (!html && item.Header.TopLevelMediaType.Equals(MimeTopLevelMediaType.text) && item.Header.SubType.Equals("html"))
                                    )
                                 {
-#if LOG
-								   	if ( log.IsDebugEnabled )
-								   		log.Debug (System.String.Concat("Mime-Type [", item.Header.TopLevelMediaType, "/", item.Header.SubType, "] is not an accepted Mime-Type. Skiping alternative part."));
-#endif
                                     continue;
                                 }
                                 // First allowed one.
@@ -544,10 +580,6 @@ namespace anmar.SharpMimeTools
                     {
                         if ((types & MimeTopLevelMediaType.application) != MimeTopLevelMediaType.application)
                         {
-#if LOG
-							if ( log.IsDebugEnabled )
-								log.Debug (System.String.Concat("Mime-Type [", anmar.SharpMimeTools.MimeTopLevelMediaType.application, "] is not an accepted Mime-Type. Skiping part."));
-#endif
                             return;
                         }
                         goto case anmar.SharpMimeTools.MimeTopLevelMediaType.application;
@@ -593,11 +625,6 @@ namespace anmar.SharpMimeTools
                     if (attachment != null && part.Header.SubType == "ms-tnef" && (options & SharpDecodeOptions.DecodeTnef) == SharpDecodeOptions.DecodeTnef)
                     {
                         // Try getting attachments form a tnef stream
-#if LOG
-						if ( log.IsDebugEnabled ) {
-							log.Debug(System.String.Concat("Decoding ms-tnef stream."));
-						}
-#endif
                         Stream stream = attachment.Stream;
                         SharpTnefMessage tnef = new SharpTnefMessage(stream);
                         if (tnef.Parse(path))
@@ -616,11 +643,6 @@ namespace anmar.SharpMimeTools
                             }
                             attachment = null;
                             tnef.Close();
-#if LOG
-							if ( log.IsDebugEnabled ) {
-								log.Debug(System.String.Concat("ms-tnef stream decoded successfully. Found [", ((tnef.Attachments!=null)?tnef.Attachments.Count:0),"] attachments."));
-							}
-#endif
                         }
                         else
                         {
@@ -684,61 +706,6 @@ namespace anmar.SharpMimeTools
             return url;
         }
 
-        /// <summary>
-        /// Set the URL used to reference embedded parts from the HTML body (as specified on RFC2392)
-        /// </summary>
-        /// <param name="attachmentsurl">URL used to reference embedded parts from the HTML body.</param>
-        /// <remarks>The supplied URL will be replaced with the following tokens for each attachment:<br />
-        /// <ul>
-        ///  <li><b>[MessageID]</b>: Will be replaced with the <see cref="MessageID" /> of the current instance.</li>
-        ///  <li><b>[ContentID]</b>: Will be replaced with the <see cref="anmar.SharpMimeTools.SharpAttachment.ContentID" /> of the attachment.</li>
-        ///  <li><b>[Name]</b>: Will be replaced with the <see cref="anmar.SharpMimeTools.SharpAttachment.Name" /> of the attachment (or with <see cref="System.IO.FileInfo.Name" /> from <see cref="anmar.SharpMimeTools.SharpAttachment.SavedFile" /> if the instance has been already saved to disk).</li>
-        /// </ul>
-        ///</remarks>
-        public void SetUrlBase(String attachmentsurl)
-        {
-            // Not a html boy or not body at all
-            if (!_body_html || _body.Length == 0)
-                return;
-            // No references found, so nothing to do
-            if (_body.IndexOf("cid:") == -1 && _body.IndexOf("mid:") == -1)
-                return;
-            String msgid = SharpMimeTools.Rfc2392Url(MessageID);
-            // There is a base url and attachments, so try refererencing them properly
-            if (attachmentsurl != null && _attachments != null && _attachments.Count > 0)
-            {
-                for (int i = 0, count = _attachments.Count; i < count; i++)
-                {
-                    SharpAttachment attachment = (SharpAttachment)_attachments[i];
-                    if (attachment.ContentID != null)
-                    {
-                        String conid = SharpMimeTools.Rfc2392Url(attachment.ContentID);
-                        if (conid.Length > 0)
-                        {
-                            if (_body.IndexOf("cid:" + conid) != -1)
-                                _body = _body.Replace("cid:" + conid, ReplaceUrlTokens(attachmentsurl, attachment));
-                            if (!String.IsNullOrEmpty(msgid) && _body.IndexOf(String.Format("mid:{0}/{1}", msgid, conid)) != -1)
-                                _body = _body.Replace(String.Format("mid:{0}/{1}", msgid, conid), ReplaceUrlTokens(attachmentsurl, attachment));
-                            // No more references found, so nothing to do
-                            if (_body.IndexOf("cid:") == -1 && _body.IndexOf("mid:") == -1)
-                                break;
-                        }
-                    }
-                }
-            }
-            // The rest references must be to text parts
-            // so rewrite them to refer to the named anchors added by ParseMessage
-            if (_body.IndexOf("cid:") != -1)
-            {
-                _body = _body.Replace("cid:", String.Format("#{0}_", msgid));
-            }
-            if (msgid.Length > 0 && _body.IndexOf("mid:") != -1)
-            {
-                _body = _body.Replace(String.Format("mid:{0}/", msgid), String.Format("#{0}_", msgid));
-                _body = _body.Replace("mid:" + msgid, "#" + msgid);
-            }
-        }
-
         private void UuDecode(String path)
         {
             if (_body.Length == 0 || _body.IndexOf("begin ") == -1 || _body.IndexOf("end") == -1)
@@ -756,14 +723,10 @@ namespace anmar.SharpMimeTools
                         if (line.Length > 10 && line[0] == 'b' && line[1] == 'e' && line[2] == 'g' && line[3] == 'i' && line[4] == 'n' && line[5] == ' ' && line[9] == ' ')
                         {
                             String name = Path.GetFileName(line.Substring(10));
-#if LOG
-						if ( log.IsDebugEnabled )
-							log.Debug (System.String.Concat("uuencoded content found. name[", name, "]"));
-#endif
                             // In-Memory decoding
                             if (path == null)
                             {
-                                attachment = new SharpAttachment(new MemoryStream());
+                                attachment = new SharpAttachment();
                                 stream = attachment.Stream;
                                 // Filesystem decoding
                             }
@@ -789,10 +752,6 @@ namespace anmar.SharpMimeTools
                             stream.Flush();
                             if (stream.Length > 0)
                             {
-#if LOG
-							if ( log.IsDebugEnabled )
-								log.Debug (System.String.Concat("uuencoded content finished. name[", attachment.Name, "] size[", stream.Length, "]"));
-#endif
                                 attachment.Size = stream.Length;
                                 _attachments.Add(attachment);
                             }

@@ -32,52 +32,8 @@ namespace anmar.SharpMimeTools
     /// </summary>
     public class SharpMimeTools
     {
-#if LOG
-		private static log4net.ILog log  = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
-#endif
         private readonly static String[] _date_formats = new String[] { @"dddd, d MMM yyyy H:m:s zzz", @"ddd, d MMM yyyy H:m:s zzz", @"d MMM yyyy H:m:s zzz", @"dddd, d MMM yy H:m:s zzz", @"ddd, d MMM yy H:m:s zzz", @"d MMM yy H:m:s zzz", @"dddd, d MMM yyyy H:m zzz", @"ddd, d MMM yyyy H:m zzz", @"d MMM yyyy H:m zzz", @"dddd, d MMM yy H:m zzz", @"ddd, d MMM yy H:m zzz", @"d MMM yy H:m zzz" };
 
-        internal static String GetFileName(String name)
-        {
-            if (name == null || name.Length == 0)
-                return name;
-            name = name.Replace("\t", "");
-            try
-            {
-                name = Path.GetFileName(name);
-            }
-            catch (ArgumentException)
-            {
-                // Remove invalid chars
-                foreach (char ichar in Path.InvalidPathChars)
-                {
-                    name = name.Replace(ichar.ToString(), String.Empty);
-                }
-                name = Path.GetFileName(name);
-            }
-            try
-            {
-                FileInfo fi = new FileInfo(name);
-                if (fi != null)
-                    fi = null;
-            }
-            catch (ArgumentException)
-            {
-                name = null;
-#if LOG
-				if ( log.IsErrorEnabled ) {
-					log.Error(System.String.Concat("Filename [", name, "] is not allowed by the filesystem"));
-				}
-#endif
-            }
-            return name;
-        }
-        
-        private static bool IsValidHexChar(Char ch)
-        {
-            return ((ch > 0x2F && ch < 0x3A) || (ch > 0x40 && ch < 0x47) || (ch > 0x60 && ch < 0x67));
-        }
-        
         /// <summary>
         /// Parses a <see cref="System.Text.Encoding" /> from a charset name
         /// </summary>
@@ -90,31 +46,13 @@ namespace anmar.SharpMimeTools
             try
             {
                 return Encoding.GetEncoding(charset);
-#if LOG
-			} catch ( System.Exception e ) {
-				if ( log.IsErrorEnabled )
-					log.Error(System.String.Concat("Error parsing charset: [", charset, "]"), e);
-#else
             }
             catch (Exception)
             {
-#endif
                 return null;
             }
         }
-        
-        internal static Enum ParseEnum(Type t, Object s, Enum defaultvalue)
-        {
-            if (s == null)
-                return defaultvalue;
-            Enum value;
-            if (Enum.IsDefined(t, s))
-                value = (Enum)Enum.Parse(t, s.ToString());
-            else
-                value = defaultvalue;
-            return value;
-        }
-        
+
         /// <summary>
         /// Parse a rfc 2822 address specification. rfc 2822 section 3.4
         /// </summary>
@@ -124,7 +62,7 @@ namespace anmar.SharpMimeTools
         {
             return anmar.SharpMimeTools.SharpMimeAddressCollection.Parse(from);
         }
-        
+
         /// <summary>
         /// Parse a rfc 2822 name-address specification. rfc 2822 section 3.4
         /// </summary>
@@ -152,7 +90,7 @@ namespace anmar.SharpMimeTools
             }
             return from;
         }
-        
+
         /// <summary>
         /// Parse a rfc 2822 date and time specification. rfc 2822 section 3.3
         /// </summary>
@@ -188,20 +126,14 @@ namespace anmar.SharpMimeTools
                     _date_formats,
                     System.Globalization.CultureInfo.CreateSpecificCulture("en-us"),
                     System.Globalization.DateTimeStyles.AllowInnerWhite);
-#if LOG
-			} catch ( System.Exception e ) {
-				if ( log.IsErrorEnabled )
-					log.Error(System.String.Concat("Error parsing date: [", date, "]"), e);
-#else
             }
             catch (Exception)
             {
-#endif
                 msgDateTime = new DateTime(0);
             }
             return msgDateTime;
         }
-        
+
         /// <summary>
         /// Parse a rfc 2822 header field with parameters
         /// </summary>
@@ -239,7 +171,7 @@ namespace anmar.SharpMimeTools
             }
             return fieldbodycol;
         }
-        
+
         /// <summary>
         /// Parse and decode rfc 2047 header body
         /// </summary>
@@ -251,7 +183,7 @@ namespace anmar.SharpMimeTools
             header = anmar.SharpMimeTools.SharpMimeTools.rfc2047decode(header);
             return header;
         }
-        
+
         /// <summary>
         /// Decode rfc 2047 definition of quoted-printable
         /// </summary>
@@ -263,7 +195,7 @@ namespace anmar.SharpMimeTools
             Encoding enc = anmar.SharpMimeTools.SharpMimeTools.parseCharSet(charset);
             return anmar.SharpMimeTools.SharpMimeTools.QuotedPrintable2Unicode(enc, orig);
         }
-        
+
         /// <summary>
         /// Decode rfc 2047 definition of quoted-printable
         /// </summary>
@@ -328,7 +260,7 @@ namespace anmar.SharpMimeTools
             }
             return decoded.ToString();
         }
-        
+
         /// <summary>
         /// rfc 2047 header body decoding
         /// </summary>
@@ -343,16 +275,8 @@ namespace anmar.SharpMimeTools
             // No rfc2047 format
             if (!rfc2047format.IsMatch(word))
             {
-#if LOG
-				if ( log.IsDebugEnabled )
-					log.Debug ("Not a RFC 2047 string: " + word);
-#endif
                 return word;
             }
-#if LOG
-			if ( log.IsDebugEnabled )
-				log.Debug ("Decoding 2047 string: " + word);
-#endif
             words = rfc2047format.Split(word);
             word = String.Empty;
             rfc2047format = new System.Text.RegularExpressions.Regex(@"=\?([\-a-zA-Z0-9]+)\?([qQbB])\?([a-zA-Z0-9=_\-\.$%&/\'\\!:;{}\+\*\|@#~`^\(\)]+)\?=", System.Text.RegularExpressions.RegexOptions.ECMAScript);
@@ -386,13 +310,9 @@ namespace anmar.SharpMimeTools
                         break;
                 }
             }
-#if LOG
-			if ( log.IsDebugEnabled )
-				log.Debug ("Decoded 2047 string: " + word);
-#endif
             return word;
         }
-        
+
         /// <summary>
         /// Remove rfc 2822 comments
         /// </summary>
@@ -473,7 +393,7 @@ namespace anmar.SharpMimeTools
             return buf.ToString().Trim();
 
         }
-        
+
         /// <summary>
         /// Encodes a Message-ID or Content-ID following RFC 2392 rules. 
         /// </summary>
@@ -491,7 +411,7 @@ namespace anmar.SharpMimeTools
             }
             return input;
         }
-        
+
         /// <summary>
         /// Decodes the provided uuencoded string. 
         /// </summary>
@@ -506,33 +426,43 @@ namespace anmar.SharpMimeTools
             using (StringReader reader = new StringReader(input))
             {
                 MemoryStream stream = null;
-                for (String line = reader.ReadLine(); line != null; line = reader.ReadLine())
+                try
                 {
-                    // Found the start point of uuencoded content
-                    if (line.Length > 10 && line[0] == 'b' && line[1] == 'e' && line[2] == 'g' && line[3] == 'i' && line[4] == 'n' && line[5] == ' ' && line[9] == ' ')
+                    for (String line = reader.ReadLine(); line != null; line = reader.ReadLine())
                     {
-                        stream = new MemoryStream();
-                        continue;
+                        // Found the start point of uuencoded content
+                        if (line.Length > 10 && line[0] == 'b' && line[1] == 'e' && line[2] == 'g' && line[3] == 'i' && line[4] == 'n' && line[5] == ' ' && line[9] == ' ')
+                        {
+                            stream = new MemoryStream();
+                            continue;
+                        }
+                        // Not within uuencoded content
+                        if (stream == null)
+                            continue;
+                        // Content finished
+                        if (line.Length == 3 && line == "end")
+                        {
+                            stream.Flush();
+                            output = stream.ToArray();
+                            stream.Close();
+                            stream = null;
+                            break;
+                        }
+                        // Decode and write uuencoded line
+                        UuDecodeLine(line, stream);
                     }
-                    // Not within uuencoded content
-                    if (stream == null)
-                        continue;
-                    // Content finished
-                    if (line.Length == 3 && line == "end")
+                }
+                finally
+                {
+                    if (stream != null)
                     {
-                        stream.Flush();
-                        output = stream.ToArray();
                         stream.Close();
-                        stream = null;
-                        break;
-                    }
-                    // Decode and write uuencoded line
-                    UuDecodeLine(line, stream);
+                    }   
                 }
             }
             return output;
         }
-        
+
         /// <summary>
         /// Decodes the provided uuencoded line. 
         /// </summary>
@@ -573,6 +503,54 @@ namespace anmar.SharpMimeTools
                 }
             }
             return true;
+        }
+
+        internal static String GetFileName(String name)
+        {
+            if (name == null || name.Length == 0)
+                return name;
+            name = name.Replace("\t", "");
+            try
+            {
+                name = Path.GetFileName(name);
+            }
+            catch (ArgumentException)
+            {
+                // Remove invalid chars
+                foreach (char ichar in Path.GetInvalidPathChars())
+                {
+                    name = name.Replace(ichar.ToString(), String.Empty);
+                }
+                name = Path.GetFileName(name);
+            }
+            try
+            {
+                FileInfo fi = new FileInfo(name);
+                if (fi != null)
+                    fi = null;
+            }
+            catch (ArgumentException)
+            {
+                name = null;
+            }
+            return name;
+        }
+
+        internal static Enum ParseEnum(Type t, Object s, Enum defaultvalue)
+        {
+            if (s == null)
+                return defaultvalue;
+            Enum value;
+            if (Enum.IsDefined(t, s))
+                value = (Enum)Enum.Parse(t, s.ToString());
+            else
+                value = defaultvalue;
+            return value;
+        }
+
+        private static bool IsValidHexChar(Char ch)
+        {
+            return ((ch > 0x2F && ch < 0x3A) || (ch > 0x40 && ch < 0x47) || (ch > 0x60 && ch < 0x67));
         }
     }
 }

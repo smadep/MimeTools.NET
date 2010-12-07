@@ -28,34 +28,46 @@ namespace anmar.SharpMimeTools
 {
     /// <summary>
     /// </summary>
-    internal class SharpMimeMessageStream
+    internal class SharpMimeMessageStream : IDisposable
     {
-#if LOG
-		private static log4net.ILog log  = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
-#endif
-        protected Stream stream;
         private StreamReader sr;
         private Encoding enc;
-        protected long initpos;
-        protected long finalpos;
-
         private String _buf;
         private long _buf_initpos;
         private long _buf_finalpos;
 
         public SharpMimeMessageStream(Stream stream)
         {
-            this.stream = stream;
+            Stream = stream;
             enc = SharpMimeHeader.EncodingDefault;
-            sr = new StreamReader(this.stream, enc);
+            sr = new StreamReader(Stream, enc);
         }
         
         public SharpMimeMessageStream(Byte[] buffer)
         {
-            stream = new MemoryStream(buffer);
+            Stream = new MemoryStream(buffer);
             enc = SharpMimeHeader.EncodingDefault;
-            sr = new StreamReader(stream, enc);
+            sr = new StreamReader(Stream, enc);
         }
+
+        public Encoding Encoding
+        {
+            set
+            {
+                if (value != null && enc.CodePage != value.CodePage)
+                {
+                    enc = value;
+                    SeekPoint(Position);
+                    sr = new StreamReader(Stream, enc);
+                }
+            }
+        }
+
+        public long Position { get; private set; }
+
+        public long Position_preRead { get; private set; }
+
+        public Stream Stream { get; private set; }
         
         public void Close()
         {
@@ -64,12 +76,12 @@ namespace anmar.SharpMimeTools
         
         public String ReadAll()
         {
-            return ReadLines(Position, stream.Length);
+            return ReadLines(Position, Stream.Length);
         }
         
         public String ReadAll(long start)
         {
-            return ReadLines(start, stream.Length);
+            return ReadLines(start, Stream.Length);
         }
 
         public String ReadLine()
@@ -78,15 +90,15 @@ namespace anmar.SharpMimeTools
             if (_buf != null)
             {
                 line = _buf;
-                initpos = _buf_initpos;
-                finalpos = _buf_finalpos;
+                Position_preRead = _buf_initpos;
+                Position = _buf_finalpos;
                 _buf = null;
             }
             else
             {
                 StringBuilder sb = new StringBuilder(80);
                 int ending = 0;
-                initpos = Position;
+                Position_preRead = Position;
                 for (int current = sr.Read(); current != -1; current = sr.Read())
                 {
                     sb.Append((char)current);
@@ -102,7 +114,7 @@ namespace anmar.SharpMimeTools
                 if (ending > 0)
                 {
                     // Bytes read
-                    finalpos += enc.GetByteCount(sb.ToString());
+                    Position += enc.GetByteCount(sb.ToString());
                     // A single dot is treated as message end
                     if (sb.Length == (1 + ending) && sb[0] == '.')
                         sb = null;
@@ -115,7 +127,7 @@ namespace anmar.SharpMimeTools
                 else
                 {
                     // Not line ending found, so we are at the end of the stream
-                    finalpos = stream.Length;
+                    Position = Stream.Length;
                     // though at the end of the stream there may be some content
                     if (sb.Length > 0)
                         line = sb.ToString();
@@ -146,22 +158,22 @@ namespace anmar.SharpMimeTools
                     lines.Append(line);
                 }
             } while (line != null && Position != -1 && Position < end);
-            initpos = start;
+            Position_preRead = start;
             return lines;
         }
         
         public void ReadLine_Undo()
         {
-            SeekPoint(initpos);
-            finalpos = initpos;
+            SeekPoint(Position_preRead);
+            Position = Position_preRead;
         }
         
         public void ReadLine_Undo(String line)
         {
-            _buf_initpos = initpos;
-            _buf_finalpos = finalpos;
+            _buf_initpos = Position_preRead;
+            _buf_finalpos = Position;
             _buf = line;
-            finalpos = initpos;
+            Position = Position_preRead;
         }
 
         public String ReadUnfoldedLine()
@@ -188,8 +200,8 @@ namespace anmar.SharpMimeTools
                         break;
                     }
                 }
-                this.initpos = initpos;
-                if (finalpos != this.initpos)
+                Position_preRead = initpos;
+                if (Position != Position_preRead)
                 {
                     if (line == null)
                         return first_line;
@@ -199,7 +211,7 @@ namespace anmar.SharpMimeTools
                 else
                     return null;
             }
-            return (finalpos != this.initpos) ? first_line : null;
+            return (Position != Position_preRead) ? first_line : null;
         }
         
         public void SaveTo(Stream stream, long start, long end)
@@ -209,7 +221,7 @@ namespace anmar.SharpMimeTools
             SeekPoint(start);
             if (end == -1)
             {
-                end = this.stream.Length;
+                end = Stream.Length;
             }
             int n = 0;
             long pending = end - start;
@@ -218,7 +230,7 @@ namespace anmar.SharpMimeTools
             byte[] buffer = new byte[(pending > 4 * 1024) ? 4 * 1024 : pending];
             do
             {
-                n = this.stream.Read(buffer, 0, (pending > buffer.Length) ? buffer.Length : (int)pending);
+                n = Stream.Read(buffer, 0, (pending > buffer.Length) ? buffer.Length : (int)pending);
                 if (n > 0)
                 {
                     pending -= n;
@@ -257,45 +269,30 @@ namespace anmar.SharpMimeTools
         {
             if (sr.BaseStream.CanSeek && sr.BaseStream.Seek(point, System.IO.SeekOrigin.Begin) != point)
             {
-#if LOG
-				if ( log.IsErrorEnabled) log.Error ("Error while seeking");
-#endif
                 throw new IOException();
             }
             else
             {
                 sr.DiscardBufferedData();
-                finalpos = point;
+                Position = point;
             }
             _buf = null;
         }
 
-        public Encoding Encoding
+        public void Dispose()
         {
-            set
+            Dispose(true);
+        }
+
+        protected void Dispose(bool disposing)
+        {
+            if (disposing)
             {
-                if (value != null && enc.CodePage != value.CodePage)
+                if (sr != null)
                 {
-                    enc = value;
-                    SeekPoint(Position);
-                    sr = new StreamReader(stream, enc);
+                    sr.Close();
                 }
             }
-        }
-        
-        public long Position
-        {
-            get { return finalpos; }
-        }
-        
-        public long Position_preRead
-        {
-            get { return initpos; }
-        }
-        
-        public Stream Stream
-        {
-            get { return stream; }
         }
     }
 }
