@@ -249,7 +249,7 @@ namespace anmar.SharpMimeTools
         /// <see cref="System.Collections.ICollection" /> that contains the attachments found in this message.
         /// </summary>
         /// <remarks>Each attachment is a <see cref="SharpAttachment" /> instance.</remarks>
-        public ICollection Attachments { get; private set; }
+        public List<SharpAttachment> Attachments { get; private set; }
 
         /// <summary>
         /// Text body
@@ -263,7 +263,7 @@ namespace anmar.SharpMimeTools
         /// <summary>
         /// Collection of <see cref="anmar.SharpMimeTools.SharpMimeAddress" /> instances found in the <b>Cc</b> header field.
         /// </summary>
-        public IEnumerable Cc
+        public SharpMimeAddressCollection Cc
         {
             get { return SharpMimeAddressCollection.Parse(Headers.Cc); }
         }
@@ -326,7 +326,7 @@ namespace anmar.SharpMimeTools
         /// <summary>
         /// Collection of <see cref="anmar.SharpMimeTools.SharpMimeAddress" /> found in the <b>To</b> header field.
         /// </summary>
-        public IEnumerable To { get; private set; }
+        public SharpMimeAddressCollection To { get; private set; }
 
         /// <summary>
         /// Returns the requested header field body.
