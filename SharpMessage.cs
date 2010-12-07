@@ -638,7 +638,10 @@ namespace anmar.SharpMimeTools
                             if (attachment.SavedFile != null)
                             {
                                 if (stream != null && stream.CanRead)
+                                {
                                     stream.Close();
+                                    stream = null;
+                                }
                                 attachment.SavedFile.Delete();
                             }
                             attachment = null;
@@ -648,7 +651,10 @@ namespace anmar.SharpMimeTools
                         {
                             // The read-only stream is no longer needed and locks the file
                             if (attachment.SavedFile != null && stream != null && stream.CanRead)
+                            {
                                 stream.Close();
+                                stream = null;
+                            }
                         }
                         stream = null;
                         tnef = null;
