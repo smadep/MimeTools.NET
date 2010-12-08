@@ -22,9 +22,9 @@
 // -----------------------------------------------------------------------
 
 using System;
-using System.Collections;
 using System.IO;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace anmar.SharpMimeTools
 {
@@ -224,7 +224,10 @@ namespace anmar.SharpMimeTools
                             {
                                 enc = System.Text.Encoding.GetEncoding((int)codepage1);
                             }
-                            catch (Exception) { }
+                            catch (Exception e)
+                            {
+                                Trace.Fail(e.Message, e.StackTrace);
+                            }
                         }
                     }
                 }
@@ -268,7 +271,10 @@ namespace anmar.SharpMimeTools
                                         {
                                             attachment_cur.SavedFile.MoveTo(Path.Combine(path, attachment_cur.Name));
                                         }
-                                        catch (Exception) { }
+                                        catch (Exception e)
+                                        {
+                                            Trace.Fail(e.Message, e.StackTrace);
+                                        }
                                     }
                                 }
                             }
@@ -320,7 +326,10 @@ namespace anmar.SharpMimeTools
                                     {
                                         attachment_cur.SavedFile.MoveTo(Path.Combine(path, attachment_cur.Name));
                                     }
-                                    catch (Exception) { }
+                                    catch (Exception e)
+                                    {
+                                        Trace.Fail(e.Message, e.StackTrace);
+                                    }
                             }
                             else
                             {
@@ -390,7 +399,10 @@ namespace anmar.SharpMimeTools
             {
                 buffer = _reader.ReadBytes(length);
             }
-            catch (Exception) { }
+            catch (Exception e)
+            {
+                Trace.Fail(e.Message, e.StackTrace);
+            }
             return buffer;
         }
         

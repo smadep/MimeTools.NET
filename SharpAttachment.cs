@@ -22,6 +22,9 @@ namespace anmar.SharpMimeTools
             _stream = stream;
         }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="anmar.SharpMimeTools.SharpAttachment" /> class.
+        /// </summary>
         public SharpAttachment()
         {
             _stream = new MemoryStream();

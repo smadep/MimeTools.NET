@@ -467,56 +467,53 @@ namespace anmar.SharpMimeTools
                             break;
                         }
                     }
-                    if (part.Header.SubType.Equals("alternative"))
+                    if (part.Header.SubType.Equals("alternative") && part.PartsCount > 0)
                     {
-                        if (part.PartsCount > 0)
+                        SharpMimeMessage altenative = null;
+                        // Get the first mime part of the alternatives that has a accepted Mime-Type
+                        for (int i = part.PartsCount; i > 0; i--)
                         {
-                            SharpMimeMessage altenative = null;
-                            // Get the first mime part of the alternatives that has a accepted Mime-Type
-                            for (int i = part.PartsCount; i > 0; i--)
+                            SharpMimeMessage item = part.GetPart(i - 1);
+                            if ((types & part.Header.TopLevelMediaType) != part.Header.TopLevelMediaType
+                                || (!html && item.Header.TopLevelMediaType.Equals(MimeTopLevelMediaType.text) && item.Header.SubType.Equals("html"))
+                                )
                             {
-                                SharpMimeMessage item = part.GetPart(i - 1);
-                                if ((types & part.Header.TopLevelMediaType) != part.Header.TopLevelMediaType
-                                    || (!html && item.Header.TopLevelMediaType.Equals(MimeTopLevelMediaType.text) && item.Header.SubType.Equals("html"))
-                                   )
+                                continue;
+                            }
+                            // First allowed one.
+                            if (altenative == null)
+                            {
+                                altenative = item;
+                                // We don't have to select body part based on subtype if not asked for, or not a text one
+                                // or it's already the preferred one
+                                if (preferredtextsubtype == null || item.Header.TopLevelMediaType != MimeTopLevelMediaType.text || (preferredtextsubtype != null && item.Header.SubType == preferredtextsubtype))
                                 {
-                                    continue;
-                                }
-                                // First allowed one.
-                                if (altenative == null)
-                                {
-                                    altenative = item;
-                                    // We don't have to select body part based on subtype if not asked for, or not a text one
-                                    // or it's already the preferred one
-                                    if (preferredtextsubtype == null || item.Header.TopLevelMediaType != MimeTopLevelMediaType.text || (preferredtextsubtype != null && item.Header.SubType == preferredtextsubtype))
-                                    {
-                                        break;
-                                    }
-                                    // This one is preferred over the last part
-                                }
-                                else if (preferredtextsubtype != null && item.Header.TopLevelMediaType == MimeTopLevelMediaType.text && item.Header.SubType == preferredtextsubtype)
-                                {
-                                    altenative = item;
                                     break;
                                 }
+                                // This one is preferred over the last part
                             }
-                            if (altenative != null)
+                            else if (preferredtextsubtype != null && item.Header.TopLevelMediaType == MimeTopLevelMediaType.text && item.Header.SubType == preferredtextsubtype)
                             {
-                                // If message body as html is allowed and part has a Content-ID field
-                                // add an anchor to mark this body part
-                                if (html && part.Header.Contains("Content-ID") && (options & SharpDecodeOptions.NamedAnchors) == SharpDecodeOptions.NamedAnchors)
-                                {
-                                    // There is a previous text body, so enclose it in <pre>
-                                    if (!HasHtmlBody && _body.Length > 0)
-                                    {
-                                        _body = String.Concat("<pre>", HttpUtility.HtmlEncode(_body), "</pre>");
-                                        HasHtmlBody = true;
-                                    }
-                                    // Add the anchor
-                                    _body = String.Concat(_body, "<a name=\"", SharpMimeTools.Rfc2392Url(MessageID), "_", SharpMimeTools.Rfc2392Url(part.Header.ContentID), "\"></a>");
-                                }
-                                ParseMessage(altenative, types, html, options, preferredtextsubtype, path);
+                                altenative = item;
+                                break;
                             }
+                        }
+                        if (altenative != null)
+                        {
+                            // If message body as html is allowed and part has a Content-ID field
+                            // add an anchor to mark this body part
+                            if (html && part.Header.Contains("Content-ID") && (options & SharpDecodeOptions.NamedAnchors) == SharpDecodeOptions.NamedAnchors)
+                            {
+                                // There is a previous text body, so enclose it in <pre>
+                                if (!HasHtmlBody && _body.Length > 0)
+                                {
+                                    _body = String.Concat("<pre>", HttpUtility.HtmlEncode(_body), "</pre>");
+                                    HasHtmlBody = true;
+                                }
+                                // Add the anchor
+                                _body = String.Concat(_body, "<a name=\"", SharpMimeTools.Rfc2392Url(MessageID), "_", SharpMimeTools.Rfc2392Url(part.Header.ContentID), "\"></a>");
+                            }
+                            ParseMessage(altenative, types, html, options, preferredtextsubtype, path);
                         }
                         // TODO: Take into account each subtype of "multipart" and "message"
                     }

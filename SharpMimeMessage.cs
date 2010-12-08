@@ -23,6 +23,7 @@
 using System;
 using System.Collections;
 using System.IO;
+using System.Diagnostics;
 
 namespace anmar.SharpMimeTools
 {
@@ -99,13 +100,16 @@ namespace anmar.SharpMimeTools
                         {
                             tmp = Convert.FromBase64String(GetRawBody(false));
                         }
-                        catch (Exception)
+                        catch (Exception e)
                         {
+                            Trace.Fail(e.Message, e.StackTrace);
                         }
                         if (tmp != null)
                             return mi.header.Encoding.GetString(tmp);
                         else
                             return String.Empty;
+                    default:
+                        break;
                 }
                 return GetRawBody(false);
             }
@@ -150,6 +154,9 @@ namespace anmar.SharpMimeTools
                     case MimeTopLevelMediaType.text:
                     case MimeTopLevelMediaType.video:
                         return true;
+                    case MimeTopLevelMediaType.application:
+                    case MimeTopLevelMediaType.message:
+                    case MimeTopLevelMediaType.multipart:
                     default:
                         return false;
                 }
@@ -169,6 +176,11 @@ namespace anmar.SharpMimeTools
                     case MimeTopLevelMediaType.multipart:
                     case MimeTopLevelMediaType.message:
                         return true;
+                    case MimeTopLevelMediaType.application:
+                    case MimeTopLevelMediaType.audio:
+                    case MimeTopLevelMediaType.image:
+                    case MimeTopLevelMediaType.text:
+                    case MimeTopLevelMediaType.video:
                     default:
                         return false;
                 }
@@ -389,8 +401,9 @@ namespace anmar.SharpMimeTools
                                 {
                                     stream = file.Create();
                                 }
-                                catch (Exception)
+                                catch (Exception e)
                                 {
+                                    Trace.Fail(e.Message, e.StackTrace);
                                 }
                                 bool error = !DumpBody(stream);
                                 if (stream != null)
@@ -429,7 +442,10 @@ namespace anmar.SharpMimeTools
                                 file.Delete();
                         }
                     }
-                    catch (Exception) { }
+                    catch (Exception e)
+                    {
+                        Trace.Fail(e.Message, e.StackTrace);
+                    }
                     file = null;
                 }
             }
@@ -551,6 +567,13 @@ namespace anmar.SharpMimeTools
                             break;
                         }
                     }
+                    break;
+                case MimeTopLevelMediaType.audio:
+                case MimeTopLevelMediaType.image:
+                case MimeTopLevelMediaType.text:
+                case MimeTopLevelMediaType.video:
+                case MimeTopLevelMediaType.application:
+                default:
                     break;
             }
             return !false;

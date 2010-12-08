@@ -24,6 +24,7 @@ using System;
 using System.IO;
 using System.Text;
 using System.Collections.Specialized;
+using System.Diagnostics;
 
 namespace anmar.SharpMimeTools
 {
@@ -87,6 +88,8 @@ namespace anmar.SharpMimeTools
                 case 2:
                     pos = from.LastIndexOf('<') + 1;
                     return from.Substring(pos, from.Length - pos).Trim(new char[] { '<', '>', ' ' });
+                default:
+                    break;
             }
             return from;
         }
@@ -304,9 +307,12 @@ namespace anmar.SharpMimeTools
                             Byte[] ch = Convert.FromBase64String(wordetails[3]);
                             word += enc.GetString(ch);
                         }
-                        catch (Exception)
+                        catch (Exception e)
                         {
+                            Trace.Fail(e.Message, e.StackTrace);
                         }
+                        break;
+                    default:
                         break;
                 }
             }

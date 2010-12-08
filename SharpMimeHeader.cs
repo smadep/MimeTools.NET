@@ -152,7 +152,7 @@ namespace anmar.SharpMimeTools
         {
             get
             {
-                return getProperty(name.ToString());
+                return getProperty(name);
             }
         }
 
